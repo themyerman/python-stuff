@@ -100,3 +100,20 @@ def test_assurance_run_roundtrip(backend):
     got2 = backend.get_run(rid)
     assert got2.status == "completed"
     assert got2.metadata == {"suite": "jailbreak", "score": 0.9}
+
+
+def test_assurance_list_runs_order(backend):
+    t = "t1"
+    for i in range(3):
+        rid = new_run_id()
+        backend.create_run(
+            AssuranceRunRecord(
+                run_id=rid,
+                tenant_id=t,
+                status="created",
+                metadata={"i": i},
+            )
+        )
+    listed = backend.list_runs(t, limit=10)
+    assert len(listed) == 3
+    assert {r.metadata.get("i") for r in listed} == {0, 1, 2}

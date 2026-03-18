@@ -277,3 +277,27 @@ class SqliteFsBackend:
             status=row["status"],
             metadata=json.loads(row["metadata_json"]),
         )
+
+    def list_runs(self, tenant_id: TenantId, *, limit: int = 100) -> list[AssuranceRunRecord]:
+        lim = max(1, min(limit, 500))
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT run_id, tenant_id, workspace_id, status, metadata_json
+                FROM assurance_runs
+                WHERE tenant_id = ?
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (tenant_id, lim),
+            ).fetchall()
+        return [
+            AssuranceRunRecord(
+                run_id=r["run_id"],
+                tenant_id=r["tenant_id"],
+                workspace_id=r["workspace_id"],
+                status=r["status"],
+                metadata=json.loads(r["metadata_json"]),
+            )
+            for r in rows
+        ]

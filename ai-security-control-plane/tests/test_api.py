@@ -86,3 +86,53 @@ def test_evaluate_flow(client):
         },
     )
     assert unreg.json()["outcome"] == "BLOCK"
+
+
+@pytest.fixture
+def client_authed(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path / 'k.db'}",
+        artifact_root=str(tmp_path / "ka"),
+        api_key="test-secret-key",
+    )
+    app = create_app(settings)
+    with TestClient(app) as tc:
+        yield tc
+
+
+def test_api_key_unauthorized(client_authed):
+    r = client_authed.get("/v1/assurance/suites")
+    assert r.status_code == 401
+    ok = client_authed.get(
+        "/v1/assurance/suites",
+        headers={"Authorization": "Bearer test-secret-key"},
+    )
+    assert ok.status_code == 200
+    ok2 = client_authed.get(
+        "/v1/assurance/suites",
+        headers={"X-ASCP-API-Key": "test-secret-key"},
+    )
+    assert ok2.status_code == 200
+
+
+def test_api_key_health_unauthenticated(client_authed):
+    assert client_authed.get("/health").status_code == 200
+
+
+def test_assurance_runs_api(client):
+    suites = client.get("/v1/assurance/suites").json()["suites"]
+    assert "builtin-v0" in suites
+    tid = "tenant-ar"
+    cr = client.post(
+        f"/v1/tenants/{tid}/assurance-runs",
+        json={"suite": "builtin-v0", "workspace_id": "w1"},
+    )
+    assert cr.status_code == 200
+    rid = cr.json()["run_id"]
+    ex = client.post(f"/v1/tenants/{tid}/assurance-runs/{rid}/execute")
+    assert ex.status_code == 200
+    assert ex.json()["status"] == "completed"
+    got = client.get(f"/v1/tenants/{tid}/assurance-runs/{rid}")
+    assert got.json()["status"] == "completed"
+    listed = client.get(f"/v1/tenants/{tid}/assurance-runs")
+    assert any(r["run_id"] == rid for r in listed.json()["runs"])
