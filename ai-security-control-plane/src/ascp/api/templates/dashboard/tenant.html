@@ -3,8 +3,10 @@
 {% block content %}
 <p><a href="/dashboard">← All tenants</a></p>
 <h1 class="mono">{{ tenant_id }}</h1>
+<p class="page-intro">Snapshot for this tenant: what’s allowlisted, how tool policies are configured, recent test runs, dependency uploads, and audit trail excerpts.</p>
 
 <h2>Registered models</h2>
+<p class="section-intro">Models this tenant may use through the gateway when trust registration is enforced—requests for other model IDs can be blocked.</p>
 <div class="card">
   {% if models %}
   <ul class="tenants">
@@ -14,6 +16,7 @@
 </div>
 
 <h2>Policy <span class="mono">default@v1</span></h2>
+<p class="section-intro">Tool rules for evaluations and the chat gateway: which function/tool names are allowed or denied, and whether violations block or only warn.</p>
 <div class="card">
   {% if policy %}
   {% set tools = policy.get('tools', {}) %}
@@ -25,6 +28,7 @@
 </div>
 
 <h2>Assurance runs (recent)</h2>
+<p class="section-intro">Red-team style prompt suites run against a staging URL you configure; scores reflect pass rate, jailbreak refusals, and simple leak heuristics—useful before release or in CI.</p>
 <div class="card">
   {% if runs %}
   <table>
@@ -49,6 +53,7 @@
 </div>
 
 <h2>Supply chain (lockfiles)</h2>
+<p class="section-intro">Lockfiles or requirements you’ve uploaded for provenance and hashing—not a full CVE scanner yet, but a record of what was submitted for this tenant.</p>
 <div class="card">
   {% if lockfiles %}
   <table>
@@ -67,6 +72,7 @@
 </div>
 
 <h2>Recent audit events</h2>
+<p class="section-intro">Recent policy evaluations, gateway forwards/blocks, and assurance completions—handy for compliance reviews; download the full JSONL via the API when you need the complete log.</p>
 <div class="card">
   {% if audit_rows %}
   <table>

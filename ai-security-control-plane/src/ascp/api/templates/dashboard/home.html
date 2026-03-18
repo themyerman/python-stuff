@@ -1,9 +1,13 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Tenants{% endblock %}
 {% block content %}
-<h1>Tenants</h1>
-<p class="muted" style="color: var(--muted); margin-top: -0.5rem;">
-  Tenants discovered from policies, models, assurance runs, API keys, supply uploads, and RAG corpora.
+<h1>Dashboard</h1>
+<p class="page-intro">
+  <strong>AI Security Control Plane (ASCP)</strong> helps you enforce which models and tools your apps may use, log policy decisions, run adversarial “assurance” checks against staging endpoints, and keep a light record of dependencies. This dashboard is a read-only view of what ASCP already knows—everything here is also available via the API.
+</p>
+<h2 style="margin-top: 1.25rem;">Tenants</h2>
+<p class="section-intro">
+  Each tenant is an isolated workspace. Below are tenants ASCP has seen (from policies, registered models, assurance runs, API keys, uploaded lockfiles, or RAG corpora)—pick one to inspect its setup.
 </p>
 {% if tenant_links %}
 <div class="card">
