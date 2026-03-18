@@ -131,7 +131,7 @@ Reference adapters might include: **SQL** (Postgres, MySQL, …), **NoSQL/docume
 
 ## User Journeys
 
-- **Developer:** PR runs scanner (**4**) + short red-team smoke (**1**); merge blocked on critical issues.
+- **Developer:** PR runs scanner (**4**) + short red-team smoke (**1**); merge blocked on critical issues. **Implemented path:** lockfile upload + assurance with `fail_ci` — see **[docs/DEVELOPER_JOURNEY.md](./docs/DEVELOPER_JOURNEY.md)** and **[examples/developer-journey/](./examples/developer-journey/)**.
 - **Platform:** Prod traffic through gateway (**2**); policies reference scanned artifacts (**4**).
 - **Security:** Scheduled full red-team + periodic RAG lab (**3**) on staging; tickets auto-created.
 - **Compliance:** Audit log (**2**) + provenance (**4**) + test evidence (**1**, **3**).

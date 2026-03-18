@@ -65,6 +65,14 @@ People often ask: *Does ASCP watch all our network traffic? Do users send docume
 
 **Roadmap:** S3 artifacts, full SBOM diffing, richer RAG/vector eval, richer dashboard, OTLP native export.
 
+### Developer journey (PR CI)
+
+End-to-end: **upload lockfiles** to ASCP + **assurance run** against staging; merge fails if score is below **`min_pass_rate`** (`execute?fail_ci=true`).
+
+- **Guide:** **[docs/DEVELOPER_JOURNEY.md](./docs/DEVELOPER_JOURNEY.md)**
+- **Copy-paste:** **[examples/developer-journey/github-actions-pr.yml](./examples/developer-journey/github-actions-pr.yml)** → your app repo’s `.github/workflows/`
+- **Script (stdlib):** `python3 examples/developer-journey/ascp_pr_checks.py`
+
 ---
 
 ## Requirements
