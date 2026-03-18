@@ -3,7 +3,40 @@
 {% block content %}
 <p><a href="/dashboard">← All tenants</a></p>
 <h1 class="mono">{{ tenant_id }}</h1>
-<p class="page-intro">Snapshot for this tenant: what’s allowlisted, how tool policies are configured, recent test runs, dependency uploads, and audit trail excerpts.</p>
+<p class="page-intro">Readiness view: whether this AI is <strong>gated</strong> (models + tools + tests) and <strong>traceable to known bits</strong> (deps on file). Below, a single score plus five pillars—each on a 0–100 scale with Strong / Partial / Gap.</p>
+
+<div class="posture-hero card posture-{{ posture.overall_band }}">
+  <p class="posture-tagline">{{ posture.tagline }}</p>
+  <div class="posture-overall">
+    <span class="posture-score">{{ posture.overall }}</span>
+    <span class="posture-out-of">/ 100</span>
+  </div>
+  <p class="posture-label">Overall readiness (average of the five pillars below — heuristic, not a certification)</p>
+  <p class="posture-headline">{{ posture.headline }}</p>
+</div>
+
+<div class="card posture-dims">
+  <h2>Pillar scores</h2>
+  <p class="section-intro" style="margin-top: -0.2rem;">Each bar is 0 (left) to 100 (right). Use gaps to prioritize work.</p>
+  {% for d in posture.dimensions %}
+  <div class="posture-row">
+    <div class="posture-row-head">
+      <span>{{ d.title }}</span>
+      {% if d.band_class == 'strong' %}
+      <span class="pill pill-ok">{{ d.band }} · {{ d.score }}</span>
+      {% elif d.band_class == 'partial' %}
+      <span class="pill pill-warn">{{ d.band }} · {{ d.score }}</span>
+      {% else %}
+      <span class="pill pill-bad">{{ d.band }} · {{ d.score }}</span>
+      {% endif %}
+    </div>
+    <div class="posture-bar-bg"><div class="posture-bar-fill posture-fill-{{ d.band_class }}" style="width: {{ d.score }}%;"></div></div>
+    <p class="section-intro" style="margin: 0.4rem 0 0;">{{ d.detail }}</p>
+    <p class="posture-q">{{ d.question }}</p>
+  </div>
+  {% endfor %}
+  <p class="posture-foot">Pillar logic is a dashboard aid only; it does not replace your own risk assessment or compliance process.</p>
+</div>
 
 <h2>Registered models</h2>
 <p class="section-intro">Models this tenant may use through the gateway when trust registration is enforced—requests for other model IDs can be blocked.</p>

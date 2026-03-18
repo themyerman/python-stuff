@@ -1,6 +1,7 @@
 """Dashboard HTML routes."""
 
 from ascp.api.app import create_app
+from ascp.api.dashboard_routes import compute_tenant_posture
 from ascp.config import Settings
 from fastapi.testclient import TestClient
 
@@ -58,3 +59,43 @@ def test_dashboard_tenant_page_lists_models(tmp_path):
     assert r.status_code == 200
     assert b"gpt-4o" in r.content
     assert b"open" in r.content
+
+
+def test_posture_scores_empty_vs_strong():
+    empty = compute_tenant_posture(
+        models=[],
+        policy=None,
+        runs=[],
+        lockfile_count=0,
+        audit_rows=[],
+    )
+    assert empty["overall_band"] == "gap"
+    assert empty["overall"] < 55
+    assert len(empty["dimensions"]) == 5
+
+    strong = compute_tenant_posture(
+        models=["gpt-4o"],
+        policy={"tools": {"mode": "allowlist", "allowed": ["x"]}},
+        runs=[{"status": "completed", "ci_passed": True, "score": 1.0}],
+        lockfile_count=2,
+        audit_rows=[{"summary": "FORWARDED model=gpt-4o"}],
+    )
+    assert strong["overall"] >= 78
+    assert strong["overall_band"] == "strong"
+
+
+def test_tenant_dashboard_includes_posture(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path / 'dp.db'}",
+        artifact_root=str(tmp_path / "ap"),
+    )
+    app = create_app(settings)
+    with TestClient(app) as c:
+        c.put(
+            "/v1/tenants/z/policies/default/versions/v1",
+            json={"schema_version": "1", "tools": {"mode": "open"}},
+        )
+        r = c.get("/dashboard/tenant/z")
+    assert r.status_code == 200
+    assert b"Pillar scores" in r.content
+    assert b"/ 100" in r.content
