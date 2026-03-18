@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ascp.assurance import execute_assurance_run as run_assurance_pipeline, list_suite_ids
@@ -30,7 +30,8 @@ from ascp.policy import (
     DocumentPolicyEngine,
     TrustRegistryPolicyEngine,
 )
-from ascp.storage import AssuranceRunRecord, SqliteFsBackend
+from ascp.storage import AssuranceRunRecord
+from ascp.storage.factory import create_backend
 
 
 class EvaluateBody(BaseModel):
@@ -63,8 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        backend = SqliteFsBackend(settings.database_url, settings.artifact_root)
-        app.state.backend = backend
+        app.state.backend = create_backend(settings)
         app.state.settings = settings
         yield
 
@@ -76,23 +76,57 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def api_key_middleware(request: Request, call_next):
-        key = getattr(request.app.state, "settings", None)
-        api_key = getattr(key, "api_key", None) if key else None
-        if not api_key:
-            return await call_next(request)
-        path = request.url.path.rstrip("/") or "/"
+        import re
+
+        path = (request.url.path.rstrip("/") or "/")
         if path == "/health":
             return await call_next(request)
+        st = request.app.state.settings
+        admin_key = getattr(st, "api_key", None)
+        b = request.app.state.backend
         auth = request.headers.get("authorization") or ""
-        header_key = request.headers.get("x-ascp-api-key")
-        token = header_key
+        token: str | None = None
         if auth.lower().startswith("bearer "):
             token = auth[7:].strip()
-        if not token or token != api_key:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        if not token:
+            token = request.headers.get("x-ascp-api-key") or request.headers.get(
+                "x-ascp-tenant-token"
+            )
+
+        if path.startswith("/v1/admin"):
+            if not admin_key or token != admin_key:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Admin requires ASCP_API_KEY (Bearer or X-ASCP-API-Key)"},
+                )
+            request.state.ascp_admin = True
+            return await call_next(request)
+
+        if admin_key:
+            if token == admin_key:
+                request.state.ascp_admin = True
+                return await call_next(request)
+            tid = b.verify_tenant_api_token(token or "")
+            if not tid:
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            m = re.match(r"/v1/tenants/([^/]+)/", request.url.path)
+            if m and m.group(1) != tid:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Tenant API token is not valid for this tenant path"},
+                )
+            request.state.ascp_tenant_token_tid = tid
+            return await call_next(request)
+
+        if token and hasattr(b, "verify_tenant_api_token"):
+            tid = b.verify_tenant_api_token(token)
+            if tid:
+                m = re.match(r"/v1/tenants/([^/]+)/", request.url.path)
+                if m and m.group(1) != tid:
+                    return JSONResponse(status_code=403, content={"detail": "Tenant mismatch"})
         return await call_next(request)
 
-    def backend(request: Request) -> SqliteFsBackend:
+    def backend(request: Request) -> Any:
         return request.app.state.backend
 
     @app.get("/health")
@@ -213,11 +247,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not isinstance(body_any, dict):
             raise HTTPException(status_code=400, detail="JSON object body required")
         body: dict[str, Any] = body_any
-        if body.get("stream") is True:
-            raise HTTPException(
-                status_code=400,
-                detail="ASCP gateway v0 does not support stream=true; set stream false or omit",
-            )
+        is_stream = body.get("stream") is True
         model_id = str(body.get("model") or "").strip()
         if not model_id:
             raise HTTPException(status_code=400, detail="model is required")
@@ -290,6 +320,70 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 },
             )
 
+        if is_stream:
+            url = base.rstrip("/") + "/chat/completions"
+            hdrs: dict[str, str] = {
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+            }
+            if st.upstream_api_key:
+                hdrs["Authorization"] = f"Bearer {st.upstream_api_key}"
+            client = httpx.AsyncClient(timeout=float(st.gateway_timeout_seconds))
+            req = client.build_request("POST", url, json=body, headers=hdrs)
+            resp = await client.send(req, stream=True)
+            if resp.status_code != 200:
+                err_b = await resp.aread()
+                await resp.aclose()
+                await client.aclose()
+                if audit:
+                    b.append(
+                        AuditEvent(
+                            event_type=AuditEventType.GATEWAY_REQUEST,
+                            tenant_id=tenant_id,
+                            workspace_id=workspace_id,
+                            correlation_id=decision.correlation_id,
+                            payload={
+                                "path": "chat/completions",
+                                "outcome": "UPSTREAM_ERROR_STREAM",
+                                "status": resp.status_code,
+                                "model_id": model_id,
+                            },
+                        )
+                    )
+                return Response(
+                    content=err_b,
+                    status_code=resp.status_code,
+                    media_type=resp.headers.get("content-type", "application/json"),
+                )
+
+            async def stream_body():
+                try:
+                    async for chunk in resp.aiter_bytes():
+                        yield chunk
+                finally:
+                    await resp.aclose()
+                    await client.aclose()
+
+            if audit:
+                b.append(
+                    AuditEvent(
+                        event_type=AuditEventType.GATEWAY_REQUEST,
+                        tenant_id=tenant_id,
+                        workspace_id=workspace_id,
+                        correlation_id=decision.correlation_id,
+                        payload={
+                            "path": "chat/completions",
+                            "outcome": "FORWARDED_STREAM",
+                            "model_id": model_id,
+                        },
+                    )
+                )
+            return StreamingResponse(
+                stream_body(),
+                media_type="text/event-stream",
+                status_code=200,
+            )
+
         try:
             status, content, ct = forward_openai_chat_completions(
                 base_url=base,
@@ -350,6 +444,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         b = backend(request)
         rid = new_run_id()
         meta = {**body.metadata, "suite": body.suite}
+        replay_id = (body.metadata or {}).get("replay_from_run_id")
+        if replay_id:
+            prev = b.get_run(str(replay_id))
+            if prev and prev.tenant_id == tenant_id:
+                pm = dict(prev.metadata)
+                for k in (
+                    "target_url",
+                    "target_model",
+                    "target_payload_style",
+                    "target_headers",
+                    "target_body_extra",
+                    "min_pass_rate",
+                ):
+                    if k in pm and k not in (body.metadata or {}):
+                        meta[k] = pm[k]
+                if "suite" not in (body.metadata or {}):
+                    meta["suite"] = pm.get("suite") or body.suite
         rec = AssuranceRunRecord(
             run_id=rid,
             tenant_id=tenant_id,
@@ -410,11 +521,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tenant_id: str,
         run_id: str,
         request: Request,
+        fail_ci: bool = False,
     ) -> dict[str, Any]:
         b = backend(request)
         st = request.app.state.settings
         try:
-            return run_assurance_pipeline(
+            out = run_assurance_pipeline(
                 runs=b,
                 artifacts=b,
                 audit=b,
@@ -428,6 +540,108 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if "not found" in msg.lower():
                 raise HTTPException(status_code=404, detail=msg) from e
             raise HTTPException(status_code=400, detail=msg) from e
+        if fail_ci and not out.get("ci_passed", True):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Assurance run did not meet min_pass_rate",
+                    "scoring": {
+                        k: out.get(k)
+                        for k in ("score", "passed_count", "total", "ci_passed")
+                        if k in out
+                    },
+                },
+            )
+        return out
+
+    @app.post("/v1/admin/tenants/{tenant_id}/api-keys")
+    def admin_create_tenant_api_key(
+        tenant_id: str,
+        request: Request,
+        body: dict[str, Any] = Body(default_factory=dict),
+    ) -> dict[str, Any]:
+        b = backend(request)
+        name = str(body.get("name") or "default")
+        return b.create_tenant_api_key(tenant_id, name)
+
+    @app.get("/v1/admin/tenants/{tenant_id}/api-keys")
+    def admin_list_tenant_api_keys(tenant_id: str, request: Request) -> dict[str, Any]:
+        b = backend(request)
+        return {"keys": b.list_tenant_api_key_ids(tenant_id)}
+
+    @app.post("/v1/tenants/{tenant_id}/supply-chain/lockfile")
+    async def upload_supply_lockfile(
+        tenant_id: str,
+        request: Request,
+        filename: str = "requirements.txt",
+    ) -> dict[str, Any]:
+        b = backend(request)
+        data = await request.body()
+        if not data:
+            raise HTTPException(status_code=400, detail="empty body")
+        return b.put_supply_lockfile(tenant_id, filename, data)
+
+    @app.get("/v1/tenants/{tenant_id}/supply-chain/lockfiles")
+    def list_supply_lockfiles(
+        tenant_id: str,
+        request: Request,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        b = backend(request)
+        return {"lockfiles": b.list_supply_lockfiles(tenant_id, limit=limit)}
+
+    @app.post("/v1/tenants/{tenant_id}/supply-chain/cyclonedx")
+    async def upload_cyclonedx(tenant_id: str, request: Request) -> dict[str, Any]:
+        import uuid
+
+        b = backend(request)
+        raw = await request.body()
+        if not raw:
+            raise HTTPException(status_code=400, detail="empty body")
+        sid = str(uuid.uuid4())
+        key = f"supply/{tenant_id}/cyclonedx/{sid}.json"
+        b.put_bytes(key, raw)
+        return {"id": sid, "artifact_key": key}
+
+    @app.put("/v1/tenants/{tenant_id}/rag/corpora/{corpus_id}")
+    def rag_put_corpus(
+        tenant_id: str,
+        corpus_id: str,
+        body: dict[str, Any],
+        request: Request,
+    ) -> dict[str, Any]:
+        b = backend(request)
+        chunks = body.get("chunks") or []
+        if not isinstance(chunks, list):
+            raise HTTPException(status_code=400, detail="chunks must be a list")
+        return b.rag_set_corpus(tenant_id, corpus_id, chunks)
+
+    @app.post("/v1/tenants/{tenant_id}/rag/corpora/{corpus_id}/evaluate")
+    def rag_evaluate(
+        tenant_id: str,
+        corpus_id: str,
+        body: dict[str, Any],
+        request: Request,
+    ) -> dict[str, Any]:
+        b = backend(request)
+        q = str(body.get("query") or "")
+        top_k = int(body.get("top_k") or 5)
+        return b.rag_evaluate_query(tenant_id, corpus_id, q, top_k=top_k)
+
+    @app.get("/v1/tenants/{tenant_id}/audit/export.jsonl")
+    def audit_export_jsonl(
+        tenant_id: str,
+        request: Request,
+        limit: int = 5000,
+        since: str | None = None,
+    ) -> Response:
+        b = backend(request)
+        raw = b.export_audit_events_jsonl(tenant_id, limit=limit, since_iso=since)
+        return Response(
+            content=raw,
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": f'attachment; filename="audit-{tenant_id}.jsonl"'},
+        )
 
     return app
 

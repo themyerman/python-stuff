@@ -8,7 +8,13 @@ import httpx
 
 from ascp.core.types import Decision, PolicyEvaluationContext, PolicyRef
 from ascp.policy import ChainedPolicyEngine, DocumentPolicyEngine, TrustRegistryPolicyEngine
-from ascp.storage import SqliteFsBackend
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
+
+# Backends implementing trust + policy ports (SqliteFsBackend, PostgresFsBackend, …)
+PolicyBackend = Any
 
 
 def extract_tool_names_from_openai_body(body: dict[str, Any]) -> list[str]:
@@ -29,7 +35,7 @@ def extract_tool_names_from_openai_body(body: dict[str, Any]) -> list[str]:
 
 
 def evaluate_chat_completions_request(
-    backend: SqliteFsBackend,
+    backend: PolicyBackend,
     *,
     tenant_id: str,
     policy_id: str,

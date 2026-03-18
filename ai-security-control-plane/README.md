@@ -1,35 +1,195 @@
-# AI Security Control Plane
+# AI Security Control Plane (ASCP)
 
-Python-oriented control plane for **guarding LLM apps in production**, **continuous adversarial testing**, **RAG-focused attack lab**, and **supply-chain provenance**—with **pluggable storage** (SQL, NoSQL, object stores, log sinks).
+**ASCP** is a Python **control plane** for teams shipping LLM-powered apps. It helps you **enforce policies** (which models and tools are allowed), **audit** decisions, **proxy** OpenAI-style chat traffic through those policies, and run **assurance** (red-team style) scenarios against a **staging endpoint**—with everything stored in a **pluggable** layer (today: **SQLite + local files**; designed so you can swap in Postgres, S3, etc.).
 
-Product intent and architecture live in **[prd.md](./prd.md)**.
+Longer product vision (four pillars: gateway, red-team, RAG lab, supply chain) is in **[prd.md](./prd.md)**. **Ports, backends, and internals** are in **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 ---
 
-## Next steps / Todo
+## What you get today
 
-### Foundations (done)
+| Area | What it does |
+|------|----------------|
+| **Trust registry** | Per-tenant allowlist of **model IDs**. Unregistered models can be blocked. |
+| **Policy documents (v1)** | JSON/YAML rules for **tools**: allowlist / denylist, block vs warn on violations. See [examples/policy.example.yaml](./examples/policy.example.yaml). |
+| **Evaluation** | Chain: trust registry → document policy. Used by the API **evaluate** endpoint and the **gateway**. |
+| **Operator HTTP API** | Policies, models, **evaluate**, **assurance runs**, **OpenAI-compatible gateway proxy**. |
+| **Gateway** | `POST .../gateway/v1/chat/completions` — policy check, then **sync** or **`stream: true`** (SSE) forward to **`ASCP_UPSTREAM_*`**. |
+| **Assurance runs** | **`builtin-v0`**; stub or live **`target_url`**. **Scoring:** pass rate, jailbreak/refusal + leak heuristics; **`min_pass_rate`** in run metadata (default 0.7). **`?fail_ci=true`** on execute → **422** if below threshold. **`replay_from_run_id`** copies target settings into a new run. |
+| **Docker** | **`docker compose up --build`** (SQLite volume). Profile **`postgres`**: Postgres + API on port **8001** (`pip install ".[postgres]"` in image for PG URL). |
+| **Postgres** | Set **`ASCP_DATABASE_URL=postgresql://...`** and **`pip install ".[postgres]"`** — same API, metadata in Postgres, artifacts still on disk. |
+| **Tenant API keys** | **`POST /v1/admin/tenants/{id}/api-keys`** (needs **`ASCP_API_KEY`**) returns a one-time **`ascp_ten_...`** token. Use **Bearer** or **`X-ASCP-Tenant-Token`**; path tenant must match key’s tenant. |
+| **Supply chain (stub)** | Upload lockfile: **`POST .../supply-chain/lockfile?filename=...`** (raw body) → SHA-256 + artifact. **`POST .../supply-chain/cyclonedx`** stores CycloneDX JSON blob. |
+| **RAG lab (stub)** | **`PUT .../rag/corpora/{corpus_id}`** with **`chunks: [{chunk_id, text, is_poison}]`**. **`POST .../rag/corpora/{id}/evaluate`** keyword overlap “retrieval” + **`poison_in_top_k`**. |
+| **Observability** | **`GET .../audit/export.jsonl`** (tenant-filtered NDJSON). Optional **`ASCP_AUDIT_WEBHOOK_URL`** POST on each audit append. See **[docs/OBSERVABILITY.md](./docs/OBSERVABILITY.md)**. |
 
-- **Core types** — `TenantId` / `WorkspaceId` / `RunId`, `PolicyRef`, `Decision` / `Violation`, `AuditEvent`, `PolicyEvaluationContext` (`ascp.core`).
-- **Storage ports** — `PolicyRepository`, `TrustRegistry`, `AuditSink`, `ArtifactStore`, `AssuranceRunStore` + `AssuranceRunRecord` (`ascp.storage.ports`).
-- **Reference backend** — `SqliteFsBackend`: SQLite + filesystem artifacts; see [ARCHITECTURE.md](./ARCHITECTURE.md).
-- **Policy engines** — `AllowAllPolicyEngine`, `TrustRegistryPolicyEngine`, **`ChainedPolicyEngine`**, **`DocumentPolicyEngine`** (tool allowlist / deny from stored documents).
-- **Policy documents (v1)** — `PolicyDocumentV1` / `ToolsPolicy`; YAML via `policy_document_from_yaml()`; block vs. warn on allowlist violations; denylist always blocks.
-- **Operator HTTP API** — FastAPI app (`ascp.api`): `GET /health`, policy PUT/GET, model register/list, **`POST /v1/tenants/{id}/evaluate`**, assurance runs (create / list / get / patch / **`POST .../execute`** stub), **`GET /v1/assurance/suites`**. Optional **`ASCP_API_KEY`** → require `Authorization: Bearer …` or `X-ASCP-API-Key` (health stays open). Install `ascp[api]`, run **`ascp-serve`** (`ASCP_DATABASE_URL`, `ASCP_ARTIFACT_ROOT`, `ASCP_LOG_LEVEL`).
-- **Assurance (red-team)** — Suite **`builtin-v0`**; **stub** (no `target_url`) or **live**: set run metadata **`target_url`** (+ optional **`target_model`**, **`target_payload_style`** `openai_chat`|`simple_json`, **`target_headers`**, **`target_body_extra`**). Server may set **`ASCP_ASSURANCE_TARGET_AUTHORIZATION`** for Bearer to staging. Report + audit **`assurance-live-v1`** / **`builtin-stub-v1`**.
-- **Gateway proxy** — **`POST /v1/tenants/{id}/gateway/v1/chat/completions`**: same policy chain as evaluate (model + tool names from body), then forward to **`ASCP_UPSTREAM_BASE_URL`** + **`ASCP_UPSTREAM_API_KEY`** (OpenAI-compatible). **`stream: true`** rejected in v0. **403** policy block, **503** if upstream unset.
-- **Config & logging** — `Settings` (`ASCP_*`), `configure_logging` / `bind_correlation_id` for correlation-aware logs.
+**Roadmap:** S3 artifacts, full SBOM diffing, richer RAG/vector eval, hosted UI, OTLP native export.
 
-Major decisions and work to line up (check off as we go):
+---
 
-- [ ] **Scope & phases** — Define v0 (e.g. 8–12 weeks): which pillar ships first vs. stub; single-tenant vs. multi-tenant later.
-- [x] **Gateway (partial)** — OpenAI-style **`/chat/completions`** proxy path; sync only; policy query params; streaming TBD.
-- [x] **Policy model (partial)** — Stored JSON/YAML v1 schema with tool allowlist/deny and block/warn; versioning via `PolicyRef`; trust registry separate; evaluation order = trust then document (chain).
-- [ ] **Storage abstractions** — Interfaces for policy registry, audit sink, artifact store, test-run metadata; first reference implementation (e.g. Postgres + local blob dir).
-- [ ] **Trust registry & scanner (pillar 4)** — What we fingerprint first (lockfiles, HF revision, container digest); CI integration (GitHub Action, generic CLI); SBOM format(s).
-- [x] **Red-team runner (partial)** — Scenarios + stub + **live `target_url`** HTTP + heuristics; richer scoring / CI next.
-- [ ] **RAG lab (pillar 3)** — Synthetic poison corpora; eval metrics; integration with same retrieval path as prod (or faithful stub).
-- [ ] **Observability & compliance** — Audit log shape, retention, redaction; SIEM/OTLP forwarding; what we never store.
-- [x] **Dashboard / API (minimal)** — Operator API; optional shared-secret API key.
-- [ ] **Distribution** — PyPI package(s), Docker, Helm, or “library + service” split.
-- [ ] **Licensing & safety** — Responsible use of attack scenarios; docs for customers running tests only on systems they own.
+## Requirements
+
+- **Python 3.11+**
+
+---
+
+## Install
+
+**Library only** (policy types, engines, SQLite backend, YAML policies, assurance runner—usable from your own code):
+
+```bash
+pip install -e .          # from repo root, after clone
+# or eventually: pip install ascp
+```
+
+**Operator API + gateway** (FastAPI + Uvicorn):
+
+```bash
+pip install -e ".[api]"
+# Postgres metadata: pip install -e ".[api,postgres]"
+# dev/tests: pip install -e ".[dev]"
+```
+
+---
+
+## Run the API server
+
+```bash
+export ASCP_DATABASE_URL="sqlite:///./ascp.db"
+export ASCP_ARTIFACT_ROOT="./ascp_artifacts"
+# Gateway: forward allowed traffic to OpenAI-compatible API
+export ASCP_UPSTREAM_BASE_URL="https://api.openai.com/v1"
+export ASCP_UPSTREAM_API_KEY="sk-..."   # upstream provider key (keep secret)
+
+# Optional: lock down the operator API (health check stays open)
+# export ASCP_API_KEY="your-operator-secret"
+
+ascp-serve
+# Listens on 0.0.0.0:8000 by default
+```
+
+**Docker**
+
+```bash
+docker compose up --build
+# Data under volume ./ascp-data (mapped in compose). Postgres profile: docker compose --profile postgres up --build
+```
+
+Configuration uses **`ASCP_*`** environment variables (and optional `.env`). See **`ascp.config.Settings`** for the full list (timeouts, assurance target auth, log level, etc.).
+
+---
+
+## Using it (quick flows)
+
+Replace `TENANT`, `HOST` (e.g. `http://127.0.0.1:8000`), and add headers if **`ASCP_API_KEY`** is set:
+
+`Authorization: Bearer <key>` or `X-ASCP-API-Key: <key>`.
+
+### 1. Register a model and install a policy
+
+```bash
+# Policy document (tools: allowlist example)
+curl -X PUT "$HOST/v1/tenants/$TENANT/policies/default/versions/v1" \
+  -H "Content-Type: application/json" \
+  -d '{"schema_version":"1","tools":{"mode":"allowlist","allowed":["search","read_file"],"deny":["execute_shell"],"on_violation":"block"}}'
+
+curl -X POST "$HOST/v1/tenants/$TENANT/models" \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"gpt-4o"}'
+```
+
+### 2. Evaluate a decision (no LLM call)
+
+```bash
+curl -X POST "$HOST/v1/tenants/$TENANT/evaluate" \
+  -H "Content-Type: application/json" \
+  -d '{"policy_id":"default","policy_version":"v1","model_id":"gpt-4o","tools_invoked":["search"],"audit":true}'
+```
+
+### 3. Chat via the gateway (policy → upstream)
+
+Point your app at ASCP instead of the provider directly:
+
+`POST $HOST/v1/tenants/$TENANT/gateway/v1/chat/completions?policy_id=default&policy_version=v1`
+
+Same JSON body as OpenAI **chat completions** (must include **`model`**). Blocked requests return **403** with violation details.
+
+### 4. Assurance run (stub vs live)
+
+```bash
+# List suites
+curl "$HOST/v1/assurance/suites"
+
+# Stub run (no HTTP to a target)
+curl -X POST "$HOST/v1/tenants/$TENANT/assurance-runs" \
+  -H "Content-Type: application/json" \
+  -d '{"suite":"builtin-v0"}'
+# → run_id; then:
+curl -X POST "$HOST/v1/tenants/$TENANT/assurance-runs/<run_id>/execute"
+
+# Live run: POST each scenario to your staging chat URL
+curl -X POST "$HOST/v1/tenants/$TENANT/assurance-runs" \
+  -H "Content-Type: application/json" \
+  -d '{"suite":"builtin-v0","metadata":{"target_url":"https://your-staging.example/v1/chat/completions","target_model":"gpt-4o-mini"}}'
+# Optional: ASCP_ASSURANCE_TARGET_AUTHORIZATION on server for Bearer to staging
+curl -X POST "$HOST/v1/tenants/$TENANT/assurance-runs/<run_id>/execute"
+```
+
+Reports land under artifact keys like **`assurance/<run_id>/report.json`** (on disk under **`ASCP_ARTIFACT_ROOT`**).
+
+---
+
+## Python library (skipping HTTP)
+
+```python
+from ascp import SqliteFsBackend, PolicyRef, PolicyEvaluationContext
+from ascp.policy import ChainedPolicyEngine, TrustRegistryPolicyEngine, DocumentPolicyEngine
+
+backend = SqliteFsBackend("sqlite:///./ascp.db", artifact_root="./ascp_artifacts")
+backend.register_model("my-tenant", "gpt-4o")
+backend.put_policy_document(
+    PolicyRef(tenant_id="my-tenant", policy_id="default", version="v1"),
+    {"schema_version": "1", "tools": {"mode": "open"}},
+)
+chain = ChainedPolicyEngine(
+    TrustRegistryPolicyEngine(backend),
+    DocumentPolicyEngine(backend, policy_ref=PolicyRef(tenant_id="my-tenant", policy_id="default", version="v1")),
+)
+decision = chain.evaluate(
+    PolicyEvaluationContext(tenant_id="my-tenant", model_id="gpt-4o", extra={"tools_invoked": ["search"]})
+)
+print(decision.outcome, decision.violations)
+```
+
+---
+
+## Tests
+
+```bash
+pip install -e ".[dev]"
+PYTHONPATH=src python -m pytest tests/ -q
+```
+
+---
+
+## Admin & tenant tokens
+
+With **`ASCP_API_KEY`** set, use it as **Bearer** for all routes, **or** create per-tenant keys:
+
+```bash
+curl -X POST "$HOST/v1/admin/tenants/$TENANT/api-keys" \
+  -H "Authorization: Bearer $ASCP_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"ci"}'
+# Save the returned "token"; then:
+curl "$HOST/v1/tenants/$TENANT/models" -H "Authorization: Bearer ascp_ten_...."
+```
+
+## Roadmap (abbrev.)
+
+- S3/GCS artifacts; vector RAG eval; OTLP; Helm; responsible-use docs for offensive scenarios. See **[prd.md](./prd.md)**.
+
+---
+
+## License
+
+MIT (see [pyproject.toml](./pyproject.toml)).

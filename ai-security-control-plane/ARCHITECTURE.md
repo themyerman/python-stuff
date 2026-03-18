@@ -21,9 +21,12 @@ Single class implementing **all** ports above:
   - `trust_registry` — tenant, model_id, metadata JSON
   - `audit_events` — full `AuditEvent` JSON per row
   - `assurance_runs` — run metadata + status + JSON metadata
+  - `tenant_api_keys`, `supply_lockfiles`, `rag_chunks` — operator features (see README)
 - **Filesystem** under **`artifact_root`**: one file per artifact key (safe relative paths only).
 
-Use this for local dev, tests, and small deployments; scale-out paths replace individual ports with cloud-native implementations.
+**`PostgresFsBackend`** (`ascp.storage.postgres_fs`): same tables + behavior when **`ASCP_DATABASE_URL`** is `postgresql://...` (requires **`pip install ascp[postgres]`**). **`create_backend(settings)`** in **`ascp.storage.factory`** picks SQLite vs Postgres.
+
+Use SQLite/Postgres + FS for dev and small deployments; scale-out paths can replace individual ports with cloud-native implementations.
 
 ## Policy engines (`ascp.policy.engine`, `ascp.policy.document_engine`)
 
@@ -39,7 +42,7 @@ YAML/JSON mapping validated by Pydantic; **`policy_document_from_yaml(text)`**. 
 
 ## Operator API (`ascp.api`)
 
-FastAPI: health, policy CRUD, models, **`POST .../evaluate`**, **`POST .../gateway/v1/chat/completions`** (policy then upstream forward), assurance runs + execute (stub or live via **`target_url`**), suites. Env: **`ASCP_UPSTREAM_BASE_URL`**, **`ASCP_UPSTREAM_API_KEY`**, **`ASCP_ASSURANCE_TARGET_AUTHORIZATION`**, timeouts. **`ASCP_API_KEY`** locks API except **`/health`**. **`ascp[api]`**, **`ascp-serve`**.
+FastAPI: admin tenant API keys, supply-chain uploads, RAG corpora/eval, **audit NDJSON export**, gateway **sync + streaming**, assurance **scoring / fail_ci / replay**, etc. **`ASCP_API_KEY`** (admin) or per-tenant **`ascp_ten_*`** tokens. **`ASCP_AUDIT_WEBHOOK_URL`**. See README + **`docs/OBSERVABILITY.md`**.
 
 ## Assurance (`ascp.assurance`)
 
