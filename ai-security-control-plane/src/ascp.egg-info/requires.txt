@@ -1,0 +1,14 @@
+pydantic<3,>=2.5
+pydantic-settings<3,>=2.1
+pyyaml<7,>=6.0.1
+
+[api]
+fastapi<1,>=0.109
+uvicorn[standard]<1,>=0.27
+
+[dev]
+pytest>=7.4
+fastapi<1,>=0.109
+httpx>=0.26
+ruff>=0.1.9
+mypy>=1.7

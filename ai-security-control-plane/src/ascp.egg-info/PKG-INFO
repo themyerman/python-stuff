@@ -1,3 +1,24 @@
+Metadata-Version: 2.4
+Name: ascp
+Version: 0.1.0
+Summary: AI Security Control Plane — foundations for policy gateway, assurance runs, and pluggable storage
+Author: ASCP contributors
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic<3,>=2.5
+Requires-Dist: pydantic-settings<3,>=2.1
+Requires-Dist: pyyaml<7,>=6.0.1
+Provides-Extra: api
+Requires-Dist: fastapi<1,>=0.109; extra == "api"
+Requires-Dist: uvicorn[standard]<1,>=0.27; extra == "api"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: fastapi<1,>=0.109; extra == "dev"
+Requires-Dist: httpx>=0.26; extra == "dev"
+Requires-Dist: ruff>=0.1.9; extra == "dev"
+Requires-Dist: mypy>=1.7; extra == "dev"
+
 # AI Security Control Plane
 
 Python-oriented control plane for **guarding LLM apps in production**, **continuous adversarial testing**, **RAG-focused attack lab**, and **supply-chain provenance**—with **pluggable storage** (SQL, NoSQL, object stores, log sinks).
@@ -13,21 +34,19 @@ Product intent and architecture live in **[prd.md](./prd.md)**.
 - **Core types** — `TenantId` / `WorkspaceId` / `RunId`, `PolicyRef`, `Decision` / `Violation`, `AuditEvent`, `PolicyEvaluationContext` (`ascp.core`).
 - **Storage ports** — `PolicyRepository`, `TrustRegistry`, `AuditSink`, `ArtifactStore`, `AssuranceRunStore` + `AssuranceRunRecord` (`ascp.storage.ports`).
 - **Reference backend** — `SqliteFsBackend`: SQLite + filesystem artifacts; see [ARCHITECTURE.md](./ARCHITECTURE.md).
-- **Policy engines** — `AllowAllPolicyEngine`, `TrustRegistryPolicyEngine`, **`ChainedPolicyEngine`**, **`DocumentPolicyEngine`** (tool allowlist / deny from stored documents).
-- **Policy documents (v1)** — `PolicyDocumentV1` / `ToolsPolicy`; YAML via `policy_document_from_yaml()`; block vs. warn on allowlist violations; denylist always blocks.
-- **Operator HTTP API** — FastAPI app (`ascp.api`): `GET /health`, policy PUT/GET, model register/list, **`POST /v1/tenants/{id}/evaluate`** (trust registry + document tools). Install `ascp[api]`, run **`ascp-serve`** (uses `ASCP_DATABASE_URL`, `ASCP_ARTIFACT_ROOT`, `ASCP_LOG_LEVEL`).
+- **Policy engines** — `AllowAllPolicyEngine`, `TrustRegistryPolicyEngine` (`TRUST_MODEL_NOT_ALLOWED` when model not registered).
 - **Config & logging** — `Settings` (`ASCP_*`), `configure_logging` / `bind_correlation_id` for correlation-aware logs.
 
 Major decisions and work to line up (check off as we go):
 
 - [ ] **Scope & phases** — Define v0 (e.g. 8–12 weeks): which pillar ships first vs. stub; single-tenant vs. multi-tenant later.
 - [ ] **Gateway (pillar 2)** — Protocol surface (OpenAI-compatible proxy? sidecar? SDK hooks?); sync vs. streaming; where session/context IDs live.
-- [x] **Policy model (partial)** — Stored JSON/YAML v1 schema with tool allowlist/deny and block/warn; versioning via `PolicyRef`; trust registry separate; evaluation order = trust then document (chain).
+- [ ] **Policy model** — How policies are authored (YAML, UI, API); versioning; tool allowlists, PII rules, model allowlists; evaluation order and failures (block vs. warn).
 - [ ] **Storage abstractions** — Interfaces for policy registry, audit sink, artifact store, test-run metadata; first reference implementation (e.g. Postgres + local blob dir).
 - [ ] **Trust registry & scanner (pillar 4)** — What we fingerprint first (lockfiles, HF revision, container digest); CI integration (GitHub Action, generic CLI); SBOM format(s).
 - [ ] **Red-team runner (pillar 1)** — How tests target customer apps (staging URL, recorded fixtures); prompt/scenario library; scoring and tickets/export.
 - [ ] **RAG lab (pillar 3)** — Synthetic poison corpora; eval metrics; integration with same retrieval path as prod (or faithful stub).
 - [ ] **Observability & compliance** — Audit log shape, retention, redaction; SIEM/OTLP forwarding; what we never store.
-- [x] **Dashboard / API (minimal)** — Operator API for policies, models, evaluate; authn/z TBD.
+- [ ] **Dashboard / API** — Minimal UI vs. API-only for v0; authn/z for operators.
 - [ ] **Distribution** — PyPI package(s), Docker, Helm, or “library + service” split.
 - [ ] **Licensing & safety** — Responsible use of attack scenarios; docs for customers running tests only on systems they own.

@@ -1,0 +1,2 @@
+[console_scripts]
+ascp-serve = ascp.api.main:main
