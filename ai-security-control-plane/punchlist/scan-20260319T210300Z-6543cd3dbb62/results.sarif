@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {
+      "results": [],
+      "tool": {
+        "driver": {
+          "name": "eye-of-sauron",
+          "rules": []
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

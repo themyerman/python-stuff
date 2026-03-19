@@ -10,6 +10,8 @@ env/
 
 # Test and coverage artifacts
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 .coverage.*
 htmlcov/
@@ -27,7 +29,9 @@ scan-results.sarif
 *.sarif
 *.tmp.json
 logs/
+# Punch list bundles (per-run subfolders: scan-<id>/punchlist.md, results.sarif)
 punchlist/
+punchlist/**
 
 # Local suppression/override files (keep examples tracked)
 *.local.suppressions.txt

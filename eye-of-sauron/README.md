@@ -86,9 +86,9 @@ Security-pattern scanner for legacy and modern codebases.
   - `strict`: `p/secrets`, `p/security-audit`, `p/owasp-top-ten`
 - `--semgrep-config` overrides profile defaults; pass comma-separated config values.
 - Every run writes a unique JSON log file to `logs/` by default (override with `--log-dir`).
-- `--punchlist` writes a v2 markdown checklist and matching SARIF file:
-  - `punchlist/scan-<timestamp>-<id>.md`
-  - `punchlist/scan-<timestamp>-<id>.sarif`
+- `--punchlist` writes a v2 markdown checklist and matching SARIF in one folder per run:
+  - `punchlist/scan-<timestamp>-<id>/punchlist.md` (includes a relative link to the SARIF)
+  - `punchlist/scan-<timestamp>-<id>/results.sarif`
 
 ## LLM-friendly guidance fields
 

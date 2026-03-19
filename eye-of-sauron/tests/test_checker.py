@@ -226,6 +226,10 @@ class CheckerTests(unittest.TestCase):
         )
         md = checker.render_punchlist_markdown(result)
         self.assertIn("# Eye of Sauron Punch List (v2)", md)
+        md_with_sarif = checker.render_punchlist_markdown(
+            result, sarif_link_name="results.sarif"
+        )
+        self.assertIn("[results.sarif](./results.sarif)", md_with_sarif)
         self.assertIn("`/tmp/app.py:10` - `PY_EVAL_EXEC`", md)
         self.assertIn("fix: Avoid eval/exec on untrusted input.", md)
         self.assertIn("autofix: review", md)

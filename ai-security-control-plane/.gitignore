@@ -75,5 +75,9 @@ Thumbs.db
 *.log
 logs/
 
+# --- Eye of Sauron punch list (per-run subfolders under punchlist/) ---
+punchlist/
+punchlist/**
+
 # --- Jupyter ---
 .ipynb_checkpoints/

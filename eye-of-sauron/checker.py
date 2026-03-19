@@ -204,7 +204,7 @@ def parse_args(argv):
     parser.add_argument(
         "--punchlist",
         action="store_true",
-        help="Write a markdown punch list to ./punchlist for this run.",
+        help="Write markdown + SARIF under ./punchlist/<run-id>/ for this run.",
     )
     return parser.parse_args(argv)
 
@@ -598,8 +598,12 @@ def _sort_findings_for_punchlist(findings):
     )
 
 
-def render_punchlist_markdown(result):
-    """Render findings as a developer-friendly markdown checklist (v2)."""
+def render_punchlist_markdown(result, sarif_link_name=None):
+    """Render findings as a developer-friendly markdown checklist (v2).
+
+    If ``sarif_link_name`` is set (e.g. ``results.sarif``), a relative markdown
+    link to that file is included in the header.
+    """
     ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
     severity_counts = {
         "high": sum(1 for x in result.findings if x.severity == "high"),
@@ -618,14 +622,26 @@ def render_punchlist_markdown(result):
         f"Generated: `{ts}`",
         f"Files scanned: **{result.files_scanned}**",
         f"Findings: **{len(result.findings)}**",
-        "",
-        "## Summary",
-        "",
-        f"- Severity counts: high={severity_counts['high']}, medium={severity_counts['medium']}, low={severity_counts['low']}, specific={severity_counts['specific']}",
-        f"- Autofix counts: safe={autofix_counts['safe']}, review={autofix_counts['review']}, manual={autofix_counts['manual']}",
-        "- Suggested workflow: triage high -> assign owner -> open ticket -> track status",
-        "",
     ]
+    if sarif_link_name:
+        lines.append(
+            f"Machine-readable (SARIF): [{sarif_link_name}](./{sarif_link_name})"
+        )
+    lines.extend(
+        [
+            "",
+            "## Summary",
+            "",
+        ]
+    )
+    lines.extend(
+        [
+            f"- Severity counts: high={severity_counts['high']}, medium={severity_counts['medium']}, low={severity_counts['low']}, specific={severity_counts['specific']}",
+            f"- Autofix counts: safe={autofix_counts['safe']}, review={autofix_counts['review']}, manual={autofix_counts['manual']}",
+            "- Suggested workflow: triage high -> assign owner -> open ticket -> track status",
+            "",
+        ]
+    )
     if result.compile_errors:
         lines.extend(["## Scanner Warnings", ""])
         for err in result.compile_errors:
@@ -700,16 +716,21 @@ def write_run_log(log_dir, args, result, rendered_output, output_format):
     return log_path
 
 
+PUNCHLIST_MD_NAME = "punchlist.md"
+PUNCHLIST_SARIF_NAME = "results.sarif"
+
+
 def write_punchlist_bundle(punchlist_dir, result):
-    """Write markdown + SARIF punch list bundle with matching run id."""
+    """Write markdown + SARIF punch list bundle under a per-run subfolder."""
     target_dir = Path(punchlist_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     run_id = uuid.uuid4().hex[:12]
-    base_name = f"scan-{timestamp}-{run_id}"
-    punchlist_path = target_dir / f"{base_name}.md"
-    sarif_path = target_dir / f"{base_name}.sarif"
-    markdown = render_punchlist_markdown(result)
+    run_dir = target_dir / f"scan-{timestamp}-{run_id}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    punchlist_path = run_dir / PUNCHLIST_MD_NAME
+    sarif_path = run_dir / PUNCHLIST_SARIF_NAME
+    markdown = render_punchlist_markdown(result, sarif_link_name=PUNCHLIST_SARIF_NAME)
     punchlist_path.write_text(markdown, encoding="utf-8")
     sarif_path.write_text(render_sarif(result), encoding="utf-8")
     return punchlist_path, sarif_path
