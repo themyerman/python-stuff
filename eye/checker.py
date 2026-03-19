@@ -1,4 +1,5 @@
 #!/usr/bin/python
+"""Scan configured folders/files for risky patterns."""
 
 import os.path
 import re, sys
@@ -38,7 +39,11 @@ def main(argv):
 			f, folders (must have arg)
 			s, scan levels (must have arg)
 		"""
-		opts, args = getopt.getopt(argv,"hi:qvt:f:s:",["help=","ignore=","quick=","verbose=","topdir=""folders=","scan_levels="])
+		opts, args = getopt.getopt(
+			argv,
+			"hi:qvt:f:s:",
+			["help", "ignore=", "quick", "verbose", "topdir=", "folders=", "scan_levels="]
+		)
 	except getopt.GetoptError:
 		usage()
 		sys.exit(2)
@@ -59,7 +64,7 @@ def main(argv):
 		elif opt in ('-t', '--topdir'):
 			rules['topdir'] = arg
 			print '* TOPDIR now set to ' + rules['topdir']
-		elif opt in ('-v' '--verbose'):
+		elif opt in ('-v', '--verbose'):
 			rules['print_ok'] = True
 			rules['scan_level'] = ['high','medium','low']
 			verbose = True	

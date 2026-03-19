@@ -1,19 +1,38 @@
+"""Planet validation example."""
+
+
 class CosmicException(Exception):
-	pass
+    """Raised when a planet name is not recognized."""
 
 
-validPlanets = ["mercury","venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"]
+VALID_PLANETS = {
+    "mercury",
+    "venus",
+    "earth",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+}
 
 
-def helloPlanet(planetName):
-	planetName = planetName.lower()
-	if planetName not in validPlanets:
-		raise CosmicException("Invalid Planet - {}".format(planetName))
+def hello_planet(planet_name):
+    """Return a greeting for a valid planet name."""
+    normalized = planet_name.lower()
+    if normalized not in VALID_PLANETS:
+        raise CosmicException(f"Invalid Planet - {normalized}")
+    return f"Hello {normalized}"
 
-	print("Hello {}".format(planetName))
+
+def main():
+    """Run a small demo with safe error handling."""
+    for name in ("Earth", "Venus", "Barzooom"):
+        try:
+            print(hello_planet(name))
+        except CosmicException as exc:
+            print(exc)
 
 
-#if __name__ == "__main__":
-helloPlanet("Earth")
-helloPlanet("Venus")
-helloPlanet("Barzooom")
+if __name__ == "__main__":
+    main()

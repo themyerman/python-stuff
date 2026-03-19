@@ -1,57 +1,60 @@
-# ASCP architecture — ports and reference backend
+# Architecture (foundations)
 
-## Ports (`ascp.storage.ports`)
+High-level view of the **foundations layer**: ports, reference backend, and how later pillars (gateway, scanner, red-team, RAG lab) plug in.
 
-Storage and side effects are defined as **`typing.Protocol`** interfaces so production can swap Postgres, S3, Kafka, etc. without changing policy or gateway code.
+## Ports (interfaces)
 
-| Port | Role |
-|------|------|
-| **PolicyRepository** | Versioned policy documents as `dict` (JSON-serializable). `get_policy_document`, `put_policy_document`, `list_policy_versions`. |
-| **TrustRegistry** | Tenant-scoped model allowlist. `register_model`, `is_model_allowed`, `list_models`. |
-| **AuditSink** | Append-only audit trail. `append`, `append_batch` with `AuditEvent`. |
-| **ArtifactStore** | Binary blobs (reports, captures). `put_bytes`, `get_bytes` keyed by path-like string. |
-| **AssuranceRunStore** | Assurance run metadata via `AssuranceRunRecord`. `create_run`, `update_run`, `get_run`, `list_runs(tenant_id, limit=...)`. |
+Core services depend on **storage and policy abstractions**, not concrete DBs or drivers.
 
-## Reference backend: `SqliteFsBackend` (`ascp.storage.sqlite_fs`)
+### Storage (`ascp.storage.ports`)
 
-Single class implementing **all** ports above:
+| Port | Responsibility |
+|------|----------------|
+| **PolicyRepository** | Get policy document by `PolicyRef`; list versions; put (for API later). |
+| **TrustRegistry** | Register allowed models (scanner writes); `is_model_allowed` (gateway reads). |
+| **AuditSink** | `append(AuditEvent)` and `append_batch`; can forward to OTLP/webhook. |
+| **ArtifactStore** | `put(key, bytes)` / `get(key)` for blobs (SBOM, traces); metadata DB stores pointer only. |
+| **AssuranceRunStore** | `create_run`, `update_run`, `get_run` for red-team / scan / RAG eval runs. |
 
-- **SQLite** (`database_url`, e.g. `sqlite:///./ascp.db`) with tables:
-  - `policies` — tenant, policy_id, version, JSON document
-  - `trust_registry` — tenant, model_id, metadata JSON
-  - `audit_events` — full `AuditEvent` JSON per row
-  - `assurance_runs` — run metadata + status + JSON metadata
-  - `tenant_api_keys`, `supply_lockfiles`, `rag_chunks` — operator features (see README)
-- **Filesystem** under **`artifact_root`**: one file per artifact key (safe relative paths only).
+### Policy (`ascp.policy.engine`)
 
-**`PostgresFsBackend`** (`ascp.storage.postgres_fs`): same tables + behavior when **`ASCP_DATABASE_URL`** is `postgresql://...` (requires **`pip install ascp[postgres]`**). **`create_backend(settings)`** in **`ascp.storage.factory`** picks SQLite vs Postgres.
+- **PolicyEngine** (protocol): `evaluate(ctx: PolicyEvaluationContext) -> Decision`.
+- Stub implementations: **AllowAllPolicyEngine**, **TrustRegistryPolicyEngine** (deny if model not in registry).
 
-Use SQLite/Postgres + FS for dev and small deployments; scale-out paths can replace individual ports with cloud-native implementations.
+## Reference backend
 
-## Policy engines (`ascp.policy.engine`, `ascp.policy.document_engine`)
+**SqliteFsBackend** (`ascp.storage.sqlite_fs`) implements all five storage ports:
 
-- **`PolicyEngine`**: `evaluate(PolicyEvaluationContext) -> Decision`.
-- **`AllowAllPolicyEngine`**: always `ALLOW`.
-- **`TrustRegistryPolicyEngine`**: when `require_registration=True`, blocks with `TRUST_MODEL_NOT_ALLOWED` if `model_id` is present and not in the tenant’s trust registry.
-- **`DocumentPolicyEngine`**: loads **`PolicyDocumentV1`** from `PolicyRepository` for a fixed `PolicyRef`; enforces **tools** (`mode`: `open` | `allowlist`, `allowed`, `deny`, `on_violation`: `block` | `warn`). Context: `extra["tools_invoked"]` or `extra["tools"]`.
-- **`ChainedPolicyEngine`**: runs multiple engines; first `BLOCK` wins; else aggregates `WARN`.
+- **SQLite** for policies, trust registry, audit_events, assurance_runs.
+- **Local filesystem** directory for artifact blobs (key hashed for safe filenames).
 
-## Policy documents v1 (`ascp.policy.document`)
-
-YAML/JSON mapping validated by Pydantic; **`policy_document_from_yaml(text)`**. Stored like any policy document via `PolicyRepository`.
-
-## Operator API (`ascp.api`)
-
-FastAPI: admin tenant API keys, supply-chain uploads, RAG corpora/eval, **audit NDJSON export**, gateway **sync + streaming**, assurance **scoring / fail_ci / replay**, **HTML dashboard** at **`/dashboard`** (Jinja2; HTTP Basic = **`ASCP_API_KEY`** when set), etc. Admin or per-tenant **`ascp_ten_*`** tokens for JSON API. **`ASCP_AUDIT_WEBHOOK_URL`**. See README + **`docs/OBSERVABILITY.md`**.
-
-## Assurance (`ascp.assurance`)
-
-**`execute_assurance_run`**: if run metadata has **`target_url`**, POSTs each scenario (default OpenAI-shaped **`{model, messages}`**); else stub rows. Report JSON + **`ASSURANCE_RUN`** audit.
-
-## Gateway (`ascp.gateway`)
-
-**`evaluate_chat_completions_request`** + **`forward_openai_chat_completions`** — tool names from OpenAI **`tools[].function.name`**.
+Config: `database_url` (default `sqlite:///ascp.db`), `artifact_root` (default `ascp_artifacts`).
 
 ## Core types (`ascp.core.types`)
 
-IDs, `PolicyRef`, `Decision` / `Violation`, `AuditEvent`, and `PolicyEvaluationContext` are Pydantic models shared across ports and engines.
+- **TenantId**, **WorkspaceId**, **RunId** — identifiers; v0 can use single tenant `"default"`.
+- **PolicyRef** — immutable pointer (tenant, name, version).
+- **Decision** / **DecisionOutcome** — allow / block / warn + reason_codes and violations.
+- **AuditEvent** — event_type, tenant, policy_ref, correlation_id, outcome, payload_ref, metadata, occurred_at.
+- **PolicyEvaluationContext** — input to policy engine (tenant, environment, model_id, tool_name, etc.).
+- **AssuranceRunRecord** — run_id, tenant_id, status, summary, created_at.
+- **new_correlation_id()**, **new_run_id()** — generate IDs; propagate correlation_id in logs and audit.
+
+## Configuration and logging
+
+- **Settings** (`ascp.config`): pydantic-settings with `ASCP_` prefix; `database_url`, `artifact_root`, `log_level`.
+- **Logging** (`ascp.logging_utils`): `configure_logging(level)`, `get_logger(name)`, `bind_correlation_id(cid)`; filter adds `correlation_id` to each record.
+
+## Extension points
+
+- **New policy backend**: Implement `PolicyRepository`, `TrustRegistry`, etc.; wire same interfaces. Gateway and red-team call sites stay unchanged.
+- **New policy engine**: Implement `PolicyEngine.evaluate(ctx) -> Decision`; use TrustRegistry or policy document when ready.
+- **Audit forwarding**: Second implementation of `AuditSink` that appends to DB and forwards to Kafka/OTLP/webhook.
+
+## What is out of scope (foundations)
+
+- HTTP gateway (OpenAI-compatible proxy, etc.).
+- Full policy DSL (YAML, OPA).
+- Dashboard, GitHub Action, multi-tenant auth.
+
+These consume the foundations once ports and types are stable.

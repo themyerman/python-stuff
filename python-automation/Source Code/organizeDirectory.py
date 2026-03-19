@@ -1,28 +1,35 @@
+"""Organize files in a directory into type-based subfolders."""
+
 import os
 from pathlib import Path
+
 SUBDIRECTORIES = {
-    "DOCUMENTS": ['.pdf','.rtf','.txt'],
-    "AUDIO":['.m4a','.m4b','.mp3'],
-    "VIDEOS": ['.mov','.avi','.mp4'],
-    "IMAGES": ['.jpg','.jpeg','.png']
+    "DOCUMENTS": [".pdf", ".rtf", ".txt"],
+    "AUDIO": [".m4a", ".m4b", ".mp3"],
+    "VIDEOS": [".mov", ".avi", ".mp4"],
+    "IMAGES": [".jpg", ".jpeg", ".png"],
 }
-def pickDirectory(value):
+
+
+def pick_directory(suffix):
+    """Return a folder name based on a file extension."""
     for category, suffixes in SUBDIRECTORIES.items():
-        for suffix in suffixes:
-            if suffix == value:
-                return category
-    return 'MISC' #If filetype doesn't exist in our dictionary
+        if suffix in suffixes:
+            return category
+    return "MISC"
 
-def organizeDirectory():
-    for item in os.scandir():
-        if item.is_dir():
+
+def organize_directory(base_path="."):
+    """Move files from base_path into categorized subdirectories."""
+    base = Path(base_path)
+    for item in os.scandir(base):
+        item_path = Path(item.path)
+        if item.is_dir() or item_path.name.startswith("."):
             continue
-        filePath = Path(item)
-        filetype = filePath.suffix.lower()
-        directory = pickDirectory(filetype)
-        directoryPath = Path(directory)
-        if directoryPath.is_dir() != True:
-            directoryPath.mkdir()
-        filePath.rename(directoryPath.joinpath(filePath))
+        target_dir = base / pick_directory(item_path.suffix.lower())
+        target_dir.mkdir(exist_ok=True)
+        item_path.rename(target_dir / item_path.name)
 
-organizeDirectory()
+
+if __name__ == "__main__":
+    organize_directory()

@@ -1,21 +1,32 @@
-import sys
+"""Generate demo files and move each into its own folder."""
+
 import random
-import subprocess
-def generateFiles(numFiles, nameFiles):
-    for i in range(0,numFiles):
-        postfix = str(i) + '.txt'
-        postfixDir = str(i)
-        subprocess.check_call(['mkdir','example' + postfixDir])
-        temp = open(nameFiles + postfix, 'w')
-        temp.write(str(random.randint(1,10)))
-        temp.close()
-        subprocess.check_call(['mv', nameFiles + postfix, 'example' + postfixDir])
-    return
+import sys
+from pathlib import Path
+
+
+def generate_files(num_files, name_prefix, base_dir="."):
+    """Create numbered text files with random content and move them to folders."""
+    base = Path(base_dir)
+    for i in range(num_files):
+        folder = base / f"example{i}"
+        folder.mkdir(exist_ok=True)
+        file_name = f"{name_prefix}{i}.txt"
+        file_path = base / file_name
+        file_path.write_text(str(random.randint(1, 10)), encoding="utf-8")
+        file_path.rename(folder / file_name)
+
 
 def main():
-    numFiles = int(sys.argv[1])
-    nameFiles = str(sys.argv[2])
-    generateFiles(numFiles, nameFiles)
+    """CLI entrypoint."""
+    if len(sys.argv) < 3:
+        print("Usage: python batchingCommands.py <num_files> <name_prefix>")
+        raise SystemExit(1)
+    num_files = int(sys.argv[1])
+    name_prefix = str(sys.argv[2])
+    generate_files(num_files, name_prefix)
 
-main()
+
+if __name__ == "__main__":
+    main()
 

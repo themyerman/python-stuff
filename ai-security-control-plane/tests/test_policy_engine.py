@@ -1,42 +1,63 @@
-"""Policy engine behavior."""
+"""Policy engine stub and trust-registry gate tests."""
 
-from __future__ import annotations
+import tempfile
+from pathlib import Path
 
 import pytest
 
-from ascp.core.types import DecisionOutcome, PolicyEvaluationContext
-from ascp.policy import AllowAllPolicyEngine, TrustRegistryPolicyEngine
-from ascp.storage import SqliteFsBackend
+from ascp.core.types import PolicyEvaluationContext
+from ascp.policy.engine import AllowAllPolicyEngine, TrustRegistryPolicyEngine
+from ascp.storage.sqlite_fs import SqliteFsBackend
 
 
-@pytest.fixture
-def trust_backend(tmp_path):
-    db = tmp_path / "t.db"
-    return SqliteFsBackend(f"sqlite:///{db}", artifact_root=tmp_path / "a")
+def test_allow_all_engine():
+    engine = AllowAllPolicyEngine()
+    ctx = PolicyEvaluationContext(model_id="any", tenant_id="default")
+    decision = engine.evaluate(ctx)
+    assert decision.outcome.value == "allow"
 
 
-def test_allow_all():
-    eng = AllowAllPolicyEngine()
-    d = eng.evaluate(
-        PolicyEvaluationContext(tenant_id="t1", model_id="anything")
-    )
-    assert d.outcome == DecisionOutcome.ALLOW
-    assert d.violations == []
+def test_trust_registry_blocks_unknown_model():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "test.db"
+        art = Path(tmp) / "art"
+        backend = SqliteFsBackend(
+            database_url=f"sqlite:///{db}",
+            artifact_root=str(art),
+        )
+        backend.register_model("default", "gpt-4")
+        engine = TrustRegistryPolicyEngine(backend, require_registration=True)
+
+    ctx_allowed = PolicyEvaluationContext(tenant_id="default", model_id="gpt-4")
+    assert engine.evaluate(ctx_allowed).outcome.value == "allow"
+
+    ctx_blocked = PolicyEvaluationContext(tenant_id="default", model_id="gpt-5")
+    decision = engine.evaluate(ctx_blocked)
+    assert decision.outcome.value == "block"
+    assert "TRUST_MODEL_NOT_ALLOWED" in decision.reason_codes
+    assert len(decision.violations) == 1
+    assert decision.violations[0].code == "TRUST_MODEL_NOT_ALLOWED"
 
 
-def test_trust_registry_blocks_unknown_model(trust_backend):
-    trust_backend.register_model("t1", "allowed-model")
-    eng = TrustRegistryPolicyEngine(trust_backend, require_registration=True)
+def test_trust_registry_no_model_id_allows():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "test.db"
+        backend = SqliteFsBackend(
+            database_url=f"sqlite:///{db}",
+            artifact_root=str(Path(tmp) / "art"),
+        )
+        engine = TrustRegistryPolicyEngine(backend, require_registration=True)
+    ctx = PolicyEvaluationContext(tenant_id="default", model_id=None)
+    assert engine.evaluate(ctx).outcome.value == "allow"
 
-    ok = eng.evaluate(
-        PolicyEvaluationContext(tenant_id="t1", model_id="allowed-model")
-    )
-    assert ok.outcome == DecisionOutcome.ALLOW
 
-    blocked = eng.evaluate(
-        PolicyEvaluationContext(tenant_id="t1", model_id="unknown-model")
-    )
-    assert blocked.outcome == DecisionOutcome.BLOCK
-    assert len(blocked.violations) == 1
-    assert blocked.violations[0].code == "TRUST_MODEL_NOT_ALLOWED"
-    assert "unknown-model" in blocked.violations[0].reason
+def test_trust_registry_require_registration_false_allows_all():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "test.db"
+        backend = SqliteFsBackend(
+            database_url=f"sqlite:///{db}",
+            artifact_root=str(Path(tmp) / "art"),
+        )
+        engine = TrustRegistryPolicyEngine(backend, require_registration=False)
+    ctx = PolicyEvaluationContext(tenant_id="default", model_id="unknown-model")
+    assert engine.evaluate(ctx).outcome.value == "allow"

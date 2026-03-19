@@ -1,5 +1,9 @@
-def printMessage():
-	print("blah blah blah")
+"""Small print helper demo."""
+
+
+def print_message():
+    """Print a simple message."""
+    print("blah blah blah")
 
 if __name__ == "__main__":
-	printMessage()
+    print_message()

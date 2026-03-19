@@ -1,4 +1,5 @@
 #!/usr/bin/python
+"""Rule configuration used by `checker.py`."""
 
 rules = {	
 	'extensions'		:	['.php', '.js', '.module', '.inc'],

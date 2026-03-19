@@ -1,6 +1,7 @@
-"""Core types and domain models."""
+"""Core domain types."""
 
 from ascp.core.types import (
+    AssuranceRunRecord,
     AuditEvent,
     AuditEventType,
     Decision,
@@ -16,6 +17,7 @@ from ascp.core.types import (
 )
 
 __all__ = [
+    "AssuranceRunRecord",
     "AuditEvent",
     "AuditEventType",
     "Decision",

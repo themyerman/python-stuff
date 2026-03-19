@@ -82,6 +82,21 @@ End-to-end: **upload lockfiles** to ASCP + **assurance run** against staging; me
 
 ---
 
+## Foundations (implemented)
+
+The core library and storage/policy **ports** are in place so gateway, scanner, red-team, and RAG lab can share the same types and backends:
+
+- **Core types** — `TenantId`, `PolicyRef`, `Decision`, `AuditEvent`, `RunId`, `PolicyEvaluationContext`, `AssuranceRunRecord`; `new_correlation_id()` / `new_run_id()`.
+- **Storage ports** — `PolicyRepository`, `TrustRegistry`, `AuditSink`, `ArtifactStore`, `AssuranceRunStore` (see [ARCHITECTURE.md](./ARCHITECTURE.md)).
+- **Reference backend** — `SqliteFsBackend`: SQLite for policies, trust registry, audit, assurance runs; local filesystem for artifact blobs.
+- **Policy engine port** — `PolicyEngine.evaluate(ctx) -> Decision`; stubs: `AllowAllPolicyEngine`, `TrustRegistryPolicyEngine` (deny if model not in registry).
+- **Config** — `Settings` with `ASCP_` prefix (`database_url`, `artifact_root`, `log_level`).
+- **Logging** — `configure_logging`, `get_logger`, `bind_correlation_id` (correlation_id on every record).
+
+To swap backends later: implement the same protocols and wire them; gateway and test call sites stay unchanged.
+
+---
+
 ## Install
 
 **Library only** (policy types, engines, SQLite backend, YAML policies, assurance runner—usable from your own code):
