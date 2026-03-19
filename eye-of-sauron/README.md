@@ -1,4 +1,4 @@
-# eye
+# eye-of-sauron
 
 Security-pattern scanner for PHP/JS-style codebases.
 

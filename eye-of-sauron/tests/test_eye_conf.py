@@ -1,4 +1,4 @@
-"""Unit tests for eye rule configuration."""
+"""Unit tests for eye-of-sauron rule configuration."""
 
 import importlib.util
 import unittest
@@ -7,7 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 CONF_PATH = BASE_DIR / "conf.py"
 
-spec = importlib.util.spec_from_file_location("eye_conf_mod", CONF_PATH)
+spec = importlib.util.spec_from_file_location("eye_of_sauron_conf_mod", CONF_PATH)
 eye_conf_mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(eye_conf_mod)
 

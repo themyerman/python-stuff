@@ -1,4 +1,4 @@
-"""Tests for eye checker scan engine and CLI behavior."""
+"""Tests for eye-of-sauron checker scan engine and CLI behavior."""
 
 import importlib.util
 import json
@@ -9,7 +9,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 CHECKER_PATH = BASE_DIR / "checker.py"
 
-spec = importlib.util.spec_from_file_location("eye_checker_mod", CHECKER_PATH)
+spec = importlib.util.spec_from_file_location("eye_of_sauron_checker_mod", CHECKER_PATH)
 checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
 
