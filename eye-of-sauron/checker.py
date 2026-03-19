@@ -3,12 +3,14 @@
 
 import argparse
 import copy
+import fnmatch
 import importlib.util
 import json
 import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import List, Optional
 
 try:
     from conf import rules as DEFAULT_RULES
@@ -18,6 +20,14 @@ except ModuleNotFoundError:
     conf_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(conf_module)
     DEFAULT_RULES = conf_module.rules
+try:
+    from rules_modern import MODERN_RULES
+except ModuleNotFoundError:
+    rules_modern_path = Path(__file__).resolve().parent / "rules_modern.py"
+    modern_spec = importlib.util.spec_from_file_location("eye_modern_rules_runtime", rules_modern_path)
+    modern_module = importlib.util.module_from_spec(modern_spec)
+    modern_spec.loader.exec_module(modern_module)
+    MODERN_RULES = modern_module.MODERN_RULES
 
 VALID_SEVERITIES = ("high", "medium", "low", "specific")
 DEFAULT_EXCLUDE_DIRS = {".git", ".hg", ".svn", "node_modules", "vendor", "__pycache__"}
@@ -27,6 +37,21 @@ COMMENT_PREFIXES = {
     ".module": ("#", "//", "/*", "*"),
     ".inc": ("#", "//", "/*", "*"),
     ".js": ("//", "/*", "*"),
+    ".ts": ("//", "/*", "*"),
+    ".tsx": ("//", "/*", "*"),
+    ".java": ("//", "/*", "*"),
+    ".go": ("//", "/*", "*"),
+    ".rb": ("#",),
+    ".sh": ("#",),
+    ".yml": ("#",),
+    ".yaml": ("#",),
+    ".tf": ("#", "//", "/*", "*"),
+}
+PROFILE_EXTENSIONS = {
+    "default": None,
+    "web": {".php", ".js", ".ts", ".tsx", ".module", ".inc"},
+    "backend": {".py", ".go", ".java", ".rb", ".sh"},
+    "full": None,
 }
 
 
@@ -41,6 +66,11 @@ class Finding:
     pattern: str
     snippet: str
     message: str = ""
+    description: str = ""
+    remediation: str = ""
+    tags: Optional[List[str]] = None
+    cwe: str = ""
+    confidence: str = "medium"
 
 
 @dataclass
@@ -82,7 +112,7 @@ def parse_args(argv):
     parser.add_argument("-v", "--verbose", action="store_true", help="Include pass summary.")
     parser.add_argument(
         "--format",
-        choices=("text", "json"),
+        choices=("text", "json", "sarif"),
         default="text",
         help="Output format.",
     )
@@ -103,6 +133,27 @@ def parse_args(argv):
         action="store_true",
         help="Also scan comment-only lines.",
     )
+    parser.add_argument(
+        "--profile",
+        choices=tuple(PROFILE_EXTENSIONS.keys()),
+        default="default",
+        help="Language profile filter.",
+    )
+    parser.add_argument(
+        "--suppressions",
+        default="",
+        help="Path to suppression file with `path_glob:rule_id` entries.",
+    )
+    parser.add_argument(
+        "--baseline",
+        default="",
+        help="Path to JSON baseline file used to suppress known findings.",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        default="",
+        help="Write baseline JSON to this file after scanning.",
+    )
     return parser.parse_args(argv)
 
 
@@ -113,6 +164,31 @@ def is_comment_or_blank(line, extension):
         return True
     prefixes = COMMENT_PREFIXES.get(extension, ("#", "//", "/*", "*"))
     return any(stripped.startswith(prefix) for prefix in prefixes)
+
+
+def _rule_entry_to_payload(entry):
+    """Normalize rule entry from legacy string or metadata dict."""
+    if isinstance(entry, str):
+        return {
+            "id": entry,
+            "pattern": entry,
+            "description": "",
+            "remediation": "",
+            "tags": [],
+            "cwe": "",
+            "confidence": "medium",
+        }
+    if isinstance(entry, dict):
+        return {
+            "id": entry.get("id", entry.get("pattern", "unnamed-rule")),
+            "pattern": entry.get("pattern", ""),
+            "description": entry.get("description", ""),
+            "remediation": entry.get("remediation", ""),
+            "tags": entry.get("tags", []),
+            "cwe": entry.get("cwe", ""),
+            "confidence": entry.get("confidence", "medium"),
+        }
+    raise TypeError(f"Unsupported rule entry type: {type(entry)}")
 
 
 def _compile_rules(rule_map, active_levels, ignored_patterns):
@@ -127,15 +203,21 @@ def _compile_rules(rule_map, active_levels, ignored_patterns):
         for severity, patterns in ext_rules.get("general", {}).items():
             if severity not in active_levels:
                 continue
-            for pattern in patterns:
-                if pattern in ignored_patterns:
+            for entry in patterns:
+                payload = _rule_entry_to_payload(entry)
+                pattern = payload["pattern"]
+                rule_id = payload["id"]
+                if not pattern:
+                    errors.append(f"[{extension}:{severity}] empty regex for rule `{rule_id}`")
+                    continue
+                if pattern in ignored_patterns or rule_id in ignored_patterns:
                     continue
                 try:
                     compiled = re.compile(pattern, re.IGNORECASE)
                 except re.error as exc:
                     errors.append(f"[{extension}:{severity}] invalid regex `{pattern}`: {exc}")
                     continue
-                generic[extension].append((severity, pattern, compiled))
+                generic[extension].append((severity, payload, compiled))
 
         for filename, checks in ext_rules.get("specific", {}).items():
             compiled_checks = []
@@ -179,6 +261,80 @@ def os_walk(path):
     return os.walk(path)
 
 
+def merge_rule_configs(base_rules, modern_rules):
+    """Merge legacy and modern rule sets."""
+    merged = copy.deepcopy(base_rules)
+    for ext in modern_rules.get("extensions", []):
+        if ext not in merged["extensions"]:
+            merged["extensions"].append(ext)
+    for ext, ext_rules in modern_rules.get("rule_set", {}).items():
+        if ext not in merged["rule_set"]:
+            merged["rule_set"][ext] = {"specific": {}, "general": {"high": [], "medium": [], "low": []}}
+        for severity in ("high", "medium", "low"):
+            merged["rule_set"][ext]["general"].setdefault(severity, [])
+            merged["rule_set"][ext]["general"][severity].extend(ext_rules.get("general", {}).get(severity, []))
+        merged["rule_set"][ext]["specific"].update(ext_rules.get("specific", {}))
+    return merged
+
+
+def _finding_fingerprint(finding):
+    return f"{finding.file}:{finding.line}:{finding.severity}:{finding.rule_id}"
+
+
+def load_baseline(path):
+    """Load baseline fingerprints from JSON file."""
+    if not path:
+        return set(), []
+    p = Path(path)
+    if not p.exists():
+        return set(), [f"Baseline file not found: {p}"]
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return set(), [f"Unable to parse baseline file {p}: {exc}"]
+    fingerprints = set(data.get("fingerprints", []))
+    return fingerprints, []
+
+
+def write_baseline(path, findings):
+    """Write baseline fingerprints JSON."""
+    payload = {
+        "fingerprints": sorted({_finding_fingerprint(item) for item in findings}),
+        "count": len(findings),
+        "version": 1,
+    }
+    Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def load_suppressions(path):
+    """Load suppression file entries in `path_glob:rule_id` format."""
+    if not path:
+        return [], []
+    p = Path(path)
+    if not p.exists():
+        return [], [f"Suppressions file not found: {p}"]
+    suppressions = []
+    errors = []
+    for idx, raw in enumerate(p.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            errors.append(f"Invalid suppression entry at line {idx}: `{line}`")
+            continue
+        file_glob, rule_id = line.split(":", 1)
+        suppressions.append((file_glob.strip(), rule_id.strip()))
+    return suppressions, errors
+
+
+def is_suppressed(finding, suppressions):
+    """Return True if finding matches suppression rule."""
+    for file_glob, rule_id in suppressions:
+        if fnmatch.fnmatch(finding.file, file_glob) and (rule_id == "*" or rule_id == finding.rule_id):
+            return True
+    return False
+
+
 def scan_with_rules(
     rule_config,
     topdir,
@@ -188,6 +344,7 @@ def scan_with_rules(
     exclude_dirs,
     scan_comments=False,
     max_findings=0,
+    allowed_extensions=None,
 ):
     """Execute scanner and return structured findings."""
     rule_set = rule_config["rule_set"]
@@ -200,6 +357,8 @@ def scan_with_rules(
 
     findings = []
     files_scanned = 0
+    if allowed_extensions:
+        extensions = extensions & set(allowed_extensions)
     for file_path in _iter_target_files(topdir, include_folders, extensions, exclude_dirs):
         files_scanned += 1
         extension = file_path.suffix
@@ -223,17 +382,21 @@ def scan_with_rules(
                                     message=f"FAIL! should be {expected}",
                                 )
                             )
-                    for severity, pattern, regex in file_generic:
-                        # Keep historical behavior: require leading whitespace before check.
-                        if re.search(rf"\s{pattern}", line, flags=re.IGNORECASE):
+                    for severity, payload, regex in file_generic:
+                        if regex.search(line):
                             findings.append(
                                 Finding(
                                     file=str(file_path),
                                     line=line_number,
                                     severity=severity,
-                                    rule_id=pattern,
-                                    pattern=pattern,
+                                    rule_id=payload["id"],
+                                    pattern=payload["pattern"],
                                     snippet=line[:140].strip(),
+                                    description=payload["description"],
+                                    remediation=payload["remediation"],
+                                    tags=payload["tags"],
+                                    cwe=payload["cwe"],
+                                    confidence=payload["confidence"],
                                 )
                             )
                     if max_findings and len(findings) >= max_findings:
@@ -298,10 +461,56 @@ def render_json(result):
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
+def render_sarif(result):
+    """Render SARIF v2.1.0 output."""
+    rules = {}
+    sarif_results = []
+    for item in result.findings:
+        if item.rule_id not in rules:
+            rules[item.rule_id] = {
+                "id": item.rule_id,
+                "name": item.rule_id,
+                "shortDescription": {"text": item.description or item.rule_id},
+                "fullDescription": {"text": item.remediation or item.description or item.rule_id},
+            }
+            if item.cwe:
+                rules[item.rule_id]["properties"] = {"cwe": item.cwe, "tags": item.tags or []}
+        sarif_results.append(
+            {
+                "ruleId": item.rule_id,
+                "level": "error" if severity_rank(item.severity) >= 3 else "warning",
+                "message": {"text": item.message or item.snippet or item.rule_id},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": item.file},
+                            "region": {"startLine": item.line},
+                        }
+                    }
+                ],
+            }
+        )
+    payload = {
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "eye-of-sauron",
+                        "rules": list(rules.values()),
+                    }
+                },
+                "results": sarif_results,
+            }
+        ],
+    }
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
 def main(argv=None):
     """CLI entrypoint."""
     args = parse_args(argv or sys.argv[1:])
-    runtime_rules = copy.deepcopy(DEFAULT_RULES)
+    runtime_rules = merge_rule_configs(copy.deepcopy(DEFAULT_RULES), copy.deepcopy(MODERN_RULES))
 
     if args.quick:
         active_levels = ["high"]
@@ -314,6 +523,9 @@ def main(argv=None):
     include_folders = _csv_list(args.folders)
     ignored_patterns = _csv_list(args.ignore)
     exclude_dirs = _csv_list(args.exclude_dirs)
+    allowed_extensions = PROFILE_EXTENSIONS.get(args.profile)
+    suppressions, suppression_errors = load_suppressions(args.suppressions)
+    baseline_fingerprints, baseline_errors = load_baseline(args.baseline)
 
     result = scan_with_rules(
         rule_config=runtime_rules,
@@ -324,10 +536,25 @@ def main(argv=None):
         exclude_dirs=exclude_dirs,
         scan_comments=args.scan_comments,
         max_findings=max(0, args.max_findings),
+        allowed_extensions=allowed_extensions,
     )
+    result.compile_errors.extend(suppression_errors + baseline_errors)
+    filtered_findings = []
+    for finding in result.findings:
+        if is_suppressed(finding, suppressions):
+            continue
+        if _finding_fingerprint(finding) in baseline_fingerprints:
+            continue
+        filtered_findings.append(finding)
+    result.findings = filtered_findings
+
+    if args.write_baseline:
+        write_baseline(args.write_baseline, result.findings)
 
     if args.format == "json":
         print(render_json(result))
+    elif args.format == "sarif":
+        print(render_sarif(result))
     else:
         print(render_text(result, show_ok=args.verbose))
 

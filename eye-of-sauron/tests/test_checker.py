@@ -104,6 +104,69 @@ class CheckerTests(unittest.TestCase):
         self.assertFalse(checker.has_failing_findings([finding], "high"))
         self.assertTrue(checker.has_failing_findings([finding], "medium"))
 
+    def test_metadata_rule_entry_supported(self):
+        rules = {
+            "extensions": [".py"],
+            "topdir": ".",
+            "scan_level": ["high"],
+            "ignore": [],
+            "scan_folders": ["src"],
+            "print_ok": False,
+            "rule_set": {
+                ".py": {
+                    "specific": {},
+                    "general": {
+                        "high": [
+                            {
+                                "id": "PY_EVAL",
+                                "pattern": r"\beval\(",
+                                "description": "Avoid eval",
+                                "remediation": "Use safer parsing",
+                            }
+                        ],
+                        "medium": [],
+                        "low": [],
+                    },
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "src"
+            root.mkdir(parents=True)
+            (root / "app.py").write_text("result = eval('1+1')\n", encoding="utf-8")
+            result = checker.scan_with_rules(
+                rule_config=rules,
+                topdir=tmp,
+                include_folders=["src"],
+                active_levels=["high"],
+                ignored_patterns=[],
+                exclude_dirs=[],
+                scan_comments=False,
+                max_findings=0,
+            )
+            self.assertEqual(len(result.findings), 1)
+            self.assertEqual(result.findings[0].rule_id, "PY_EVAL")
+            self.assertEqual(result.findings[0].description, "Avoid eval")
+
+    def test_suppressions_and_baseline_helpers(self):
+        finding = checker.Finding(
+            file="/tmp/src/app.py",
+            line=3,
+            severity="high",
+            rule_id="PY_EVAL",
+            pattern=r"\beval\(",
+            snippet="eval(user_input)",
+        )
+        suppressions = [("/tmp/src/*.py", "PY_EVAL")]
+        self.assertTrue(checker.is_suppressed(finding, suppressions))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = Path(tmp) / "baseline.json"
+            checker.write_baseline(baseline, [finding])
+            fingerprints, errors = checker.load_baseline(baseline)
+            self.assertFalse(errors)
+            self.assertIn(checker._finding_fingerprint(finding), fingerprints)
+
 
 if __name__ == "__main__":
     unittest.main()
