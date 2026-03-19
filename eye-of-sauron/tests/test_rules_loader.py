@@ -1,4 +1,4 @@
-"""Tests for external rule-pack loader."""
+"""Tests for external YAML rule-pack loader."""
 
 import importlib.util
 import json
@@ -15,7 +15,7 @@ spec.loader.exec_module(rules_loader)
 
 
 class RuleLoaderTests(unittest.TestCase):
-    """Validate JSON rule-pack loading and validation."""
+    """Validate YAML rule-pack loading and validation."""
 
     def test_load_valid_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -33,7 +33,7 @@ class RuleLoaderTests(unittest.TestCase):
                     }
                 }
             }
-            (d / "pack.json").write_text(json.dumps(pack), encoding="utf-8")
+            (d / "pack.yaml").write_text(json.dumps(pack), encoding="utf-8")
             loaded, errors = rules_loader.load_rule_packs(d)
             self.assertFalse(errors)
             self.assertIn(".py", loaded["extensions"])
@@ -41,7 +41,7 @@ class RuleLoaderTests(unittest.TestCase):
     def test_load_invalid_pack_reports_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             d = Path(tmp)
-            (d / "bad.json").write_text('{"extensions": [".py"]}', encoding="utf-8")
+            (d / "bad.yaml").write_text('extensions:\n  - .py\n', encoding="utf-8")
             loaded, errors = rules_loader.load_rule_packs(d)
             self.assertEqual(loaded, {})
             self.assertTrue(errors)
@@ -57,8 +57,8 @@ class RuleLoaderTests(unittest.TestCase):
                 "extensions": [".go"],
                 "rule_set": {".go": {"specific": {}, "general": {"high": [], "medium": [], "low": []}}},
             }
-            (d / "a.json").write_text(json.dumps(pack1), encoding="utf-8")
-            (d / "b.json").write_text(json.dumps(pack2), encoding="utf-8")
+            (d / "a.yaml").write_text(json.dumps(pack1), encoding="utf-8")
+            (d / "b.yaml").write_text(json.dumps(pack2), encoding="utf-8")
             loaded, errors = rules_loader.load_rule_packs(d)
             self.assertFalse(errors)
             self.assertIn(".py", loaded["extensions"])

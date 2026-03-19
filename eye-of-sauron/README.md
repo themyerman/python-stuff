@@ -6,8 +6,8 @@ Security-pattern scanner for legacy and modern codebases.
 
 - `checker.py`: command-line scanner that walks configured folders and reports matching rule violations.
 - `conf.py`: rule definitions grouped by extension and severity (`high`, `medium`, `low`), plus specific-file checks.
-- `rules/`: external JSON rule packs (`modern-core.json`, `secrets.json`, `tier2-languages.json`) plus `schema.json`.
-- `rules_loader.py`: rule-pack loader with lightweight schema validation.
+- `rules/`: external YAML rule packs (`modern-core.yaml`, `secrets.yaml`, `tier2-languages.yaml`) plus `schema.yaml`.
+- `rules_loader.py`: YAML rule-pack loader with lightweight schema validation.
 
 ## CLI usage
 
@@ -28,7 +28,7 @@ Security-pattern scanner for legacy and modern codebases.
   - text, JSON, and SARIF output
   - rule metadata (`id`, `description`, `remediation`, `tags`, `cwe`, `confidence`)
   - baseline filtering and suppression files
-  - external JSON rule packs (validated at load time)
+  - external YAML rule packs (validated at load time)
   - optional Semgrep integration (`--use-semgrep`)
   - profile-based extension filtering (`default`, `web`, `backend`, `platform`, `full`)
 - Regex rules are compiled once at startup with validation errors surfaced before scan completion.

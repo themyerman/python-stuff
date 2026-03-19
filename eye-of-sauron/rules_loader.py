@@ -1,7 +1,12 @@
-"""Load and validate external JSON rule packs."""
+"""Load and validate external YAML rule packs."""
 
 import json
 from pathlib import Path
+
+try:
+    import yaml  # type: ignore
+except ModuleNotFoundError:
+    yaml = None
 
 VALID_SEVERITIES = ("high", "medium", "low")
 
@@ -22,7 +27,7 @@ def _validate_rule_entry(entry, context):
 def _validate_pack(data, file_name):
     errors = []
     if not isinstance(data, dict):
-        return [f"{file_name}: pack must be a JSON object"]
+        return [f"{file_name}: pack must be a YAML mapping/object"]
     if "extensions" not in data or not isinstance(data["extensions"], list):
         errors.append(f"{file_name}: missing or invalid `extensions` list")
     if "rule_set" not in data or not isinstance(data["rule_set"], dict):
@@ -61,21 +66,33 @@ def _merge_packs(packs):
 
 
 def load_rule_packs(rule_packs_dir):
-    """Load all JSON packs from a directory."""
+    """Load all YAML packs from a directory."""
     path = Path(rule_packs_dir)
     if not path.exists():
         return {}, [f"Rule packs directory not found: {path}"]
-    json_files = sorted(file for file in path.glob("*.json") if file.name != "schema.json")
-    if not json_files:
+    yaml_files = sorted(list(path.glob("*.yaml")) + list(path.glob("*.yml")))
+    yaml_files = [file for file in yaml_files if file.name not in {"schema.yaml", "schema.yml"}]
+    if not yaml_files:
         return {}, []
 
     packs = []
     errors = []
-    for file_path in json_files:
+    for file_path in yaml_files:
         try:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
+            raw = file_path.read_text(encoding="utf-8")
+            if yaml is not None:
+                data = yaml.safe_load(raw)
+            else:
+                # JSON is valid YAML; this fallback supports YAML files written in JSON syntax.
+                data = json.loads(raw)
         except Exception as exc:
-            errors.append(f"{file_path.name}: JSON parse error: {exc}")
+            if yaml is None:
+                errors.append(
+                    f"{file_path.name}: parse error without PyYAML fallback ({exc}). "
+                    "Install PyYAML for full YAML support."
+                )
+            else:
+                errors.append(f"{file_path.name}: YAML parse error: {exc}")
             continue
         errors.extend(_validate_pack(data, file_path.name))
         packs.append(data)
