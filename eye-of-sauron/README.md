@@ -17,6 +17,7 @@ Security-pattern scanner for legacy and modern codebases.
 - `python3 checker.py -t /path/to/repo --profile backend --format sarif`
 - `python3 checker.py -t /path/to/repo --profile platform --format sarif`
 - `python3 checker.py -t /path/to/repo --suppressions suppressions.txt --baseline baseline.json`
+- `python3 checker.py -t /path/to/repo --suppressions suppressions-python-stuff-tests.txt`
 - `python3 checker.py -t /path/to/repo --write-baseline baseline.json`
 - `python3 checker.py -t /path/to/repo --rule-packs-dir ./rules --use-semgrep --semgrep-config auto`
 - `python3 checker.py -t /path/to/repo --log-dir ./logs`
