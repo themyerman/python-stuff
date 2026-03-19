@@ -59,7 +59,7 @@ Security-pattern scanner for legacy and modern codebases.
 
 - `checker.py` now supports:
   - text, JSON, and SARIF output
-  - rule metadata (`id`, `description`, `remediation`, `tags`, `cwe`, `confidence`)
+  - rule metadata (`id`, `description`, `remediation`, `fix_recipe`, `safe_replacement`, `test_policy`, `autofix`, `docs_url`, `tags`, `cwe`, `confidence`)
   - baseline filtering and suppression files
   - external YAML rule packs (validated at load time)
   - optional Semgrep integration (`--use-semgrep`)
@@ -86,7 +86,29 @@ Security-pattern scanner for legacy and modern codebases.
   - `strict`: `p/secrets`, `p/security-audit`, `p/owasp-top-ten`
 - `--semgrep-config` overrides profile defaults; pass comma-separated config values.
 - Every run writes a unique JSON log file to `logs/` by default (override with `--log-dir`).
-- `--punchlist` writes a markdown checklist to `punchlist/scan-<timestamp>-<id>.md`.
+- `--punchlist` writes a v2 markdown checklist and matching SARIF file:
+  - `punchlist/scan-<timestamp>-<id>.md`
+  - `punchlist/scan-<timestamp>-<id>.sarif`
+
+## LLM-friendly guidance fields
+
+- `fix_recipe`: step-by-step guidance for developers/agents.
+- `safe_replacement`: concrete safer code pattern.
+- `test_policy`: whether the rule should still fire in tests (`flag-in-tests-and-prod`, `allow-in-tests-with-justification`, etc.).
+- `autofix`: expected automation confidence (`safe`, `review`, `manual`).
+- `docs_url`: optional reference for deeper remediation context.
+
+When unsure, prefer `autofix: review` so teams get prompted rather than silently rewritten.
+
+## Punch List v2
+
+- Keeps your markdown checklist workflow, with additions for tracking:
+  - `finding-id` (stable short id)
+  - `status` (default `open`)
+  - `owner` (default `unassigned`)
+  - `sla` (severity-based target)
+- Includes existing context (`why`, `fix`, `recipe`, `safe-replacement`, `autofix`, `test-policy`, `docs`, `snippet`).
+- Writes a matching SARIF artifact with the same run id for tool/CI interoperability.
 
 ## Next Steps
 

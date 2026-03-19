@@ -49,6 +49,11 @@
             "pattern": "\\b(eval|exec)\\(",
             "description": "Dynamic execution in Python.",
             "remediation": "Avoid eval/exec on untrusted input.",
+            "fix_recipe": "Replace dynamic evaluation with explicit parsing/dispatch and strict allowlists.",
+            "safe_replacement": "ast.literal_eval(user_input)  # only for trusted literal-like data",
+            "test_policy": "allow-in-tests-with-justification",
+            "autofix": "review",
+            "docs_url": "https://owasp.org/www-community/attacks/Code_Injection",
             "tags": [
               "injection",
               "rce"
@@ -61,6 +66,11 @@
             "pattern": "subprocess\\.(run|Popen|call|check_call|check_output)\\(.*shell\\s*=\\s*True",
             "description": "subprocess with shell=True can enable command injection.",
             "remediation": "Pass argument arrays and keep shell=False.",
+            "fix_recipe": "Split command into explicit argv list, validate input, and call subprocess with shell=False.",
+            "safe_replacement": "subprocess.run([\"git\", \"status\"], shell=False, check=True)",
+            "test_policy": "flag-in-tests-and-prod",
+            "autofix": "review",
+            "docs_url": "https://cwe.mitre.org/data/definitions/78.html",
             "tags": [
               "injection",
               "command"
@@ -73,6 +83,11 @@
             "pattern": "verify\\s*=\\s*False",
             "description": "TLS verification disabled.",
             "remediation": "Enable certificate validation.",
+            "fix_recipe": "Remove verify=False and configure trusted CA bundle where needed.",
+            "safe_replacement": "requests.get(url, timeout=10)  # verify defaults to True",
+            "test_policy": "allow-in-tests-with-justification",
+            "autofix": "safe",
+            "docs_url": "https://cwe.mitre.org/data/definitions/295.html",
             "tags": [
               "tls"
             ],
@@ -102,7 +117,11 @@
           {
             "id": "TS_EVAL",
             "pattern": "\\beval\\(",
-            "description": "Dynamic eval in TS/JS."
+            "description": "Dynamic eval in TS/JS.",
+            "fix_recipe": "Use explicit parser or dispatch map; never evaluate untrusted strings.",
+            "safe_replacement": "const handler = commandMap[input]; if (handler) handler();",
+            "test_policy": "allow-in-tests-with-justification",
+            "autofix": "review"
           },
           {
             "id": "TS_NEW_FUNCTION",
@@ -112,7 +131,11 @@
           {
             "id": "TS_CHILD_PROCESS_EXEC",
             "pattern": "child_process\\.(exec|spawn)\\(",
-            "description": "Command execution API used."
+            "description": "Command execution API used.",
+            "fix_recipe": "Use spawn with fixed command and sanitized args; avoid shell invocation.",
+            "safe_replacement": "spawn(\"ls\", [\"-la\"], { shell: false })",
+            "test_policy": "flag-in-tests-and-prod",
+            "autofix": "review"
           }
         ],
         "medium": [

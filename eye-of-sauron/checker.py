@@ -84,6 +84,11 @@ class Finding:
     message: str = ""
     description: str = ""
     remediation: str = ""
+    fix_recipe: str = ""
+    safe_replacement: str = ""
+    test_policy: str = "review"
+    autofix: str = "review"
+    docs_url: str = ""
     tags: Optional[List[str]] = None
     cwe: str = ""
     confidence: str = "medium"
@@ -221,6 +226,11 @@ def _rule_entry_to_payload(entry):
             "pattern": entry,
             "description": "",
             "remediation": "",
+            "fix_recipe": "",
+            "safe_replacement": "",
+            "test_policy": "review",
+            "autofix": "review",
+            "docs_url": "",
             "tags": [],
             "cwe": "",
             "confidence": "medium",
@@ -231,6 +241,11 @@ def _rule_entry_to_payload(entry):
             "pattern": entry.get("pattern", ""),
             "description": entry.get("description", ""),
             "remediation": entry.get("remediation", ""),
+            "fix_recipe": entry.get("fix_recipe", ""),
+            "safe_replacement": entry.get("safe_replacement", ""),
+            "test_policy": entry.get("test_policy", "review"),
+            "autofix": entry.get("autofix", "review"),
+            "docs_url": entry.get("docs_url", ""),
             "tags": entry.get("tags", []),
             "cwe": entry.get("cwe", ""),
             "confidence": entry.get("confidence", "medium"),
@@ -334,6 +349,14 @@ def merge_rule_configs(base_rules, modern_rules):
 
 def _finding_fingerprint(finding):
     return f"{finding.file}:{finding.line}:{finding.severity}:{finding.rule_id}"
+
+
+def _finding_id(finding):
+    """Stable short identifier for tracking a finding across runs."""
+    import hashlib
+
+    raw = _finding_fingerprint(finding).encode("utf-8")
+    return hashlib.sha1(raw).hexdigest()[:12]
 
 
 def load_baseline(path):
@@ -449,6 +472,11 @@ def scan_with_rules(
                                     snippet=line[:140].strip(),
                                     description=payload["description"],
                                     remediation=payload["remediation"],
+                                    fix_recipe=payload["fix_recipe"],
+                                    safe_replacement=payload["safe_replacement"],
+                                    test_policy=payload["test_policy"],
+                                    autofix=payload["autofix"],
+                                    docs_url=payload["docs_url"],
                                     tags=payload["tags"],
                                     cwe=payload["cwe"],
                                     confidence=payload["confidence"],
@@ -571,14 +599,31 @@ def _sort_findings_for_punchlist(findings):
 
 
 def render_punchlist_markdown(result):
-    """Render findings as a developer-friendly markdown checklist."""
+    """Render findings as a developer-friendly markdown checklist (v2)."""
     ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
+    severity_counts = {
+        "high": sum(1 for x in result.findings if x.severity == "high"),
+        "medium": sum(1 for x in result.findings if x.severity == "medium"),
+        "low": sum(1 for x in result.findings if x.severity == "low"),
+        "specific": sum(1 for x in result.findings if x.severity == "specific"),
+    }
+    autofix_counts = {
+        "safe": sum(1 for x in result.findings if x.autofix == "safe"),
+        "review": sum(1 for x in result.findings if x.autofix == "review"),
+        "manual": sum(1 for x in result.findings if x.autofix == "manual"),
+    }
     lines = [
-        "# Eye of Sauron Punch List",
+        "# Eye of Sauron Punch List (v2)",
         "",
         f"Generated: `{ts}`",
         f"Files scanned: **{result.files_scanned}**",
         f"Findings: **{len(result.findings)}**",
+        "",
+        "## Summary",
+        "",
+        f"- Severity counts: high={severity_counts['high']}, medium={severity_counts['medium']}, low={severity_counts['low']}, specific={severity_counts['specific']}",
+        f"- Autofix counts: safe={autofix_counts['safe']}, review={autofix_counts['review']}, manual={autofix_counts['manual']}",
+        "- Suggested workflow: triage high -> assign owner -> open ticket -> track status",
         "",
     ]
     if result.compile_errors:
@@ -604,14 +649,30 @@ def render_punchlist_markdown(result):
         lines.append(f"### {severity.upper()} ({len(group)})")
         lines.append("")
         for item in group:
+            finding_id = _finding_id(item)
+            sla = "P1 (24h)" if item.severity in ("high", "specific") else "P2 (7d)" if item.severity == "medium" else "P3 (30d)"
             title = f"- [ ] `{item.file}:{item.line}` - `{item.rule_id}`"
             lines.append(title)
+            lines.append(f"  - finding-id: `{finding_id}`")
+            lines.append("  - status: `open`")
+            lines.append("  - owner: `unassigned`")
+            lines.append(f"  - sla: `{sla}`")
             if item.description:
                 lines.append(f"  - why: {item.description}")
             if item.remediation:
                 lines.append(f"  - fix: {item.remediation}")
             elif item.message:
                 lines.append(f"  - fix: {item.message}")
+            lines.append(f"  - autofix: {item.autofix}")
+            lines.append(f"  - test-policy: {item.test_policy}")
+            if item.fix_recipe:
+                lines.append(f"  - recipe: {item.fix_recipe}")
+            if item.safe_replacement:
+                lines.append(f"  - safe-replacement: `{item.safe_replacement}`")
+            if item.docs_url:
+                lines.append(f"  - docs: {item.docs_url}")
+            if item.cwe:
+                lines.append(f"  - cwe: {item.cwe}")
             if item.snippet:
                 lines.append(f"  - snippet: `{item.snippet}`")
             lines.append("")
@@ -639,16 +700,19 @@ def write_run_log(log_dir, args, result, rendered_output, output_format):
     return log_path
 
 
-def write_punchlist(punchlist_dir, result):
-    """Write markdown punch list to a timestamped file."""
+def write_punchlist_bundle(punchlist_dir, result):
+    """Write markdown + SARIF punch list bundle with matching run id."""
     target_dir = Path(punchlist_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     run_id = uuid.uuid4().hex[:12]
-    punchlist_path = target_dir / f"scan-{timestamp}-{run_id}.md"
+    base_name = f"scan-{timestamp}-{run_id}"
+    punchlist_path = target_dir / f"{base_name}.md"
+    sarif_path = target_dir / f"{base_name}.sarif"
     markdown = render_punchlist_markdown(result)
     punchlist_path.write_text(markdown, encoding="utf-8")
-    return punchlist_path
+    sarif_path.write_text(render_sarif(result), encoding="utf-8")
+    return punchlist_path, sarif_path
 
 
 def parse_semgrep_json_payload(payload_text):
@@ -774,11 +838,15 @@ def main(argv=None):
 
     log_path = write_run_log(args.log_dir, args, result, rendered, args.format)
     if args.punchlist:
-        punchlist_path = write_punchlist(Path(args.topdir).resolve() / "punchlist", result)
+        punchlist_path, punchlist_sarif_path = write_punchlist_bundle(
+            Path(args.topdir).resolve() / "punchlist",
+            result,
+        )
     if args.format == "text":
         print(f"\nLog written: {log_path}")
         if args.punchlist:
             print(f"Punch list written: {punchlist_path}")
+            print(f"Punch list SARIF: {punchlist_sarif_path}")
 
     if result.compile_errors:
         return 2

@@ -122,6 +122,8 @@ class CheckerTests(unittest.TestCase):
                                 "pattern": r"\beval\(",
                                 "description": "Avoid eval",
                                 "remediation": "Use safer parsing",
+                                "autofix": "review",
+                                "test_policy": "allow-in-tests-with-justification",
                             }
                         ],
                         "medium": [],
@@ -147,6 +149,8 @@ class CheckerTests(unittest.TestCase):
             self.assertEqual(len(result.findings), 1)
             self.assertEqual(result.findings[0].rule_id, "PY_EVAL")
             self.assertEqual(result.findings[0].description, "Avoid eval")
+            self.assertEqual(result.findings[0].autofix, "review")
+            self.assertEqual(result.findings[0].test_policy, "allow-in-tests-with-justification")
 
     def test_suppressions_and_baseline_helpers(self):
         finding = checker.Finding(
@@ -221,9 +225,13 @@ class CheckerTests(unittest.TestCase):
             compile_errors=[],
         )
         md = checker.render_punchlist_markdown(result)
-        self.assertIn("# Eye of Sauron Punch List", md)
+        self.assertIn("# Eye of Sauron Punch List (v2)", md)
         self.assertIn("`/tmp/app.py:10` - `PY_EVAL_EXEC`", md)
         self.assertIn("fix: Avoid eval/exec on untrusted input.", md)
+        self.assertIn("autofix: review", md)
+        self.assertIn("test-policy: review", md)
+        self.assertIn("finding-id:", md)
+        self.assertIn("status: `open`", md)
 
 
 if __name__ == "__main__":
