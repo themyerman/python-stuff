@@ -1,213 +1,342 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Scan configured folders/files for risky patterns."""
 
-import os.path
-import re, sys
-import getopt
-from conf import rules
+import argparse
+import copy
+import importlib.util
+import json
+import re
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+try:
+    from conf import rules as DEFAULT_RULES
+except ModuleNotFoundError:
+    conf_path = Path(__file__).resolve().parent / "conf.py"
+    spec = importlib.util.spec_from_file_location("eye_conf_runtime", conf_path)
+    conf_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conf_module)
+    DEFAULT_RULES = conf_module.rules
+
+VALID_SEVERITIES = ("high", "medium", "low", "specific")
+DEFAULT_EXCLUDE_DIRS = {".git", ".hg", ".svn", "node_modules", "vendor", "__pycache__"}
+COMMENT_PREFIXES = {
+    ".py": ("#",),
+    ".php": ("#", "//", "/*", "*"),
+    ".module": ("#", "//", "/*", "*"),
+    ".inc": ("#", "//", "/*", "*"),
+    ".js": ("//", "/*", "*"),
+}
 
 
-def main(argv):
-	"""
-	pull in config items for topdir
-	or change from command line
-	pull in file extension
-	only scans folders that are set in scan_folder
-	run os.walk() and determine
-	which ruleset to use (specific/general)
-	"""
-	
-	verbose = ''
-	quick = ''
-	folders = ''
-	topdir = ''
-	scan_levels = ''
-	
-	#let's not even go anywhere if there are no arguments passed in!
-	if len(sys.argv) == 1:
-		usage()
-		sys.exit(2)
-		
-	try:
-		"""
-		args are:
-			h, help
-			i, ignore (must have arg)
-			q, quick
-			v, verbose
-			t, topdir (must have arg)
-			f, folders (must have arg)
-			s, scan levels (must have arg)
-		"""
-		opts, args = getopt.getopt(
-			argv,
-			"hi:qvt:f:s:",
-			["help", "ignore=", "quick", "verbose", "topdir=", "folders=", "scan_levels="]
-		)
-	except getopt.GetoptError:
-		usage()
-		sys.exit(2)
-	
-	
-	print
-	print '====================================================='
-	print '==         EYE OF SAURON                           =='
-	print '==                                                 =='
-	print '==       "the eye sees all"                        =='
-	print '====================================================='
-	print
+@dataclass
+class Finding:
+    """Structured output for one rule match."""
 
-	for opt, arg in opts:
-		if opt in ('-h', '--help'):
-			usage()
-			sys.exit()
-		elif opt in ('-t', '--topdir'):
-			rules['topdir'] = arg
-			print '* TOPDIR now set to ' + rules['topdir']
-		elif opt in ('-v', '--verbose'):
-			rules['print_ok'] = True
-			rules['scan_level'] = ['high','medium','low']
-			verbose = True	
-			quick = False	
-		elif opt in ('-q', '--quick'):
-			rules['print_ok'] = False
-			rules['scan_level'] = ['high']
-			verbose = False
-			quick = True
-		elif opt in ('-f', '--folders'):
-			rules['scan_folders'] = arg.split(',')
-			print '* SCANNING FOLDERS now set to ' + (', ').join(rules['scan_folders'])
-		elif opt in ('-s', '--scan_levels'):
-			rules['scan_level'] = arg.split(',')
-			print '* SCANNING LEVELS now set to ' + (', ').join(rules['scan_level'])
-		elif opt in ('-i', '--ignore'):
-			rules['ignore'] = arg.split(',')
-			print '* IGNORING these ' + (', ').join(rules['ignore'])
-			
-			
-	if verbose:
-		print "* VERBOSE mode"
-	elif quick:
-		print "* QUICK mode"
-	
-	print
-	print '* STARTING SCAN'
-	print
-						
-	for root,subs,files in os.walk(rules['topdir']):
-		for scandir in rules['scan_folders']:
-			if scandir not in root:
-				continue
-			
-			for fname in files:
-				short,ext = os.path.splitext(fname)
-				if ext not in rules['extensions']:
-					continue
-									
-				file_name = os.path.join(root,fname)
-				if fname in rules['rule_set'][ext]['specific']:
-					check_specific_rules(file_name,ext)
-				else:
-					check_generic_rules(file_name,ext)				
-	print
-	print '* COMPLETE'
-	print
+    file: str
+    line: int
+    severity: str
+    rule_id: str
+    pattern: str
+    snippet: str
+    message: str = ""
 
-def check_specific_rules(file_name,ext):
-	"""
-	check_specific_rules --- loads rules for filename
-	and outputs any problems it might find with that file
-	"""
-	lines = open(file_name)
-	findings = ''
-	print_line = False
 
-	for num,line in enumerate(lines):
-		for name,rule in rules['rule_set'][ext]['specific'][os.path.basename(file_name)].iteritems():
-			for _regex, truth in rule.iteritems():
-				t = re.compile(_regex,re.IGNORECASE)
-				if re.search(t,line):
-					findings +=  "[SPECIFIC]\t%6d\t%-20s\tFAIL! should be %s\n" % (num+1,name,truth) 
-					print_line = True
+@dataclass
+class ScanResult:
+    """Aggregate scan result."""
 
-	if len(findings):
-		print file_name
-		print findings
-	elif print_line == False and rules['print_ok']:
-		print file_name + " SPECIFIC CHECK - OK"	
-	lines.close()
-		
+    files_scanned: int
+    findings: list[Finding]
+    compile_errors: list[str]
 
-def check_generic_rules(file_name,ext):
-	"""
-	check_generic_rules -- checks each line of a file for problems
-	specified in high/medium/low rules
-	will only run the general level if scan_level is set
-	"""
-	lines = open(file_name)
-	findings = ''
-	print_line = False
-	
-	for num,line in enumerate(lines):
-		#dump empty lines and lines that begin with a comment
-		if re.search('^$',line) or re.search('^\s*#', line) \
-			or re.search('^\s*//',line) or re.search('^\s*\|',line) \
-			or re.search('^\s*/\*',line) or re.search('^\s*\*',line):
-			
-			continue
-		else:
-			for severity,checks in rules['rule_set'][ext]['general'].iteritems():
-				if severity not in rules['scan_level']:
-					continue
-					
-				for check in checks:
-					if check in rules['ignore']:
-						continue
-						
-					p = re.compile(" "+check,re.IGNORECASE)
-					if re.search(p, line):
-						findings += "[%s]\t%6d\t%-20s\t%s\n" % (severity.upper(),num+1,check,line[0:100].strip())
-						print_line = True
 
-	if len(findings):
-		print file_name
-		print findings
-	elif print_line == False and rules['print_ok']:
-		print "GENERIC CHECK - OK\n"
-	
-	lines.close()
+def _csv_list(value):
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
 
-def usage():
-	print 'checker.py '
-	print "\t[-q | --quick]  - sets scan_level to HIGH and print_ok to FALSE"
-	print "\t[-v | --verbose]  - sets scan_level to HIGH,MEDIUM,LOW and print_ok to TRUE"
-	print "\t[-t | --topdir <TOPDIRECTORY>] - sets directory to start scan, can be absolute or relative to script"
-	print "\t[-f | --folders <FOLDERS>] - comma-separated list of folder names to scan under TOPDIR"
-	print "\t[-s | --scan_levels <LEVELS>] - comma-separated list of scan levels (typically HIGH MEDIUM LOW)"
-	print "\t[-i | --ignore <IGNORE>] - comma-separated list of patterns to ignore"
-	print "\t[-h | --help] - this help screen"
-	print
-	print 'Basic Examples (quick & verbose):'
-	print "\tchecker.py -q -t ~/documents/www/foo"
-	print "\tchecker.py -v -t ~/documents/www/foo"
-	print
-	print 'Example setting custom folders to scan:'
-	print "\tchecker.py -f assets -t ~/documents/www/foo"
-	print "\tchecker.py --folders application,assets --topdir ~/documents/www/foo"
-	print
-	print 'Example setting custom scan levels:'
-	print "\tchecker.py -s medium -t ~/documents/www/foo"
-	print
-	print 'Example setting ignore rules with other rules:'
-	print '*notice backslash on ` character!*'
-	print "\tchecker.py -s high -i print_r,var_dump,\` -t ~/documents/www/foo"
-	print
-	print "Combination example:"
-	print "\tchecker.py -s high -f application -t ~/documents/www/foo"
-	
-#============================================
-# and go
-#============================================	
+
+def parse_args(argv):
+    """Parse CLI arguments."""
+    parser = argparse.ArgumentParser(description="Scan source code for risky patterns.")
+    parser.add_argument("-t", "--topdir", default=DEFAULT_RULES.get("topdir", "."))
+    parser.add_argument(
+        "-f",
+        "--folders",
+        default=",".join(DEFAULT_RULES.get("scan_folders", [])),
+        help="Comma-separated folder names to include (match on path part).",
+    )
+    parser.add_argument(
+        "-s",
+        "--scan-levels",
+        default=",".join(DEFAULT_RULES.get("scan_level", ["high"])),
+        help="Comma-separated severities: high,medium,low",
+    )
+    parser.add_argument(
+        "-i",
+        "--ignore",
+        default=",".join(DEFAULT_RULES.get("ignore", [])),
+        help="Comma-separated rule patterns to ignore.",
+    )
+    parser.add_argument("-q", "--quick", action="store_true", help="Scan only HIGH checks.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Include pass summary.")
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format.",
+    )
+    parser.add_argument(
+        "--fail-on",
+        choices=VALID_SEVERITIES,
+        default="high",
+        help="Exit non-zero if findings at or above this severity exist.",
+    )
+    parser.add_argument("--max-findings", type=int, default=0, help="Stop after N findings (0=all).")
+    parser.add_argument(
+        "--exclude-dirs",
+        default=",".join(sorted(DEFAULT_EXCLUDE_DIRS)),
+        help="Comma-separated directory names to skip while walking.",
+    )
+    parser.add_argument(
+        "--scan-comments",
+        action="store_true",
+        help="Also scan comment-only lines.",
+    )
+    return parser.parse_args(argv)
+
+
+def is_comment_or_blank(line, extension):
+    """Return True if line is blank or starts with a known comment prefix."""
+    stripped = line.strip()
+    if not stripped:
+        return True
+    prefixes = COMMENT_PREFIXES.get(extension, ("#", "//", "/*", "*"))
+    return any(stripped.startswith(prefix) for prefix in prefixes)
+
+
+def _compile_rules(rule_map, active_levels, ignored_patterns):
+    """Compile generic/specific regex rules once."""
+    generic = {}
+    specific = {}
+    errors = []
+    for extension, ext_rules in rule_map.items():
+        generic[extension] = []
+        specific[extension] = {}
+
+        for severity, patterns in ext_rules.get("general", {}).items():
+            if severity not in active_levels:
+                continue
+            for pattern in patterns:
+                if pattern in ignored_patterns:
+                    continue
+                try:
+                    compiled = re.compile(pattern, re.IGNORECASE)
+                except re.error as exc:
+                    errors.append(f"[{extension}:{severity}] invalid regex `{pattern}`: {exc}")
+                    continue
+                generic[extension].append((severity, pattern, compiled))
+
+        for filename, checks in ext_rules.get("specific", {}).items():
+            compiled_checks = []
+            for rule_id, rule_def in checks.items():
+                for pattern, expected in rule_def.items():
+                    try:
+                        compiled = re.compile(pattern, re.IGNORECASE)
+                    except re.error as exc:
+                        errors.append(
+                            f"[{extension}:{filename}:{rule_id}] invalid regex `{pattern}`: {exc}"
+                        )
+                        continue
+                    compiled_checks.append((rule_id, pattern, expected, compiled))
+            specific[extension][filename] = compiled_checks
+    return generic, specific, errors
+
+
+def _iter_target_files(topdir, include_folders, valid_extensions, exclude_dirs):
+    """Yield file paths filtered by extension and included folder names."""
+    base = Path(topdir).resolve()
+    include_set = set(include_folders)
+    exclude_set = set(exclude_dirs)
+
+    for root, dirs, files in os_walk(base):
+        dirs[:] = [d for d in dirs if d not in exclude_set]
+        root_path = Path(root)
+        if include_set:
+            root_parts = set(root_path.parts)
+            if not (include_set & root_parts):
+                continue
+        for filename in files:
+            extension = Path(filename).suffix
+            if extension in valid_extensions:
+                yield root_path / filename
+
+
+def os_walk(path):
+    """Wrapper for os.walk to simplify testing/mocking."""
+    import os
+
+    return os.walk(path)
+
+
+def scan_with_rules(
+    rule_config,
+    topdir,
+    include_folders,
+    active_levels,
+    ignored_patterns,
+    exclude_dirs,
+    scan_comments=False,
+    max_findings=0,
+):
+    """Execute scanner and return structured findings."""
+    rule_set = rule_config["rule_set"]
+    extensions = set(rule_config["extensions"])
+    compiled_generic, compiled_specific, compile_errors = _compile_rules(
+        rule_set,
+        set(active_levels),
+        set(ignored_patterns),
+    )
+
+    findings = []
+    files_scanned = 0
+    for file_path in _iter_target_files(topdir, include_folders, extensions, exclude_dirs):
+        files_scanned += 1
+        extension = file_path.suffix
+        file_specific = compiled_specific.get(extension, {}).get(file_path.name, [])
+        file_generic = compiled_generic.get(extension, [])
+        try:
+            with file_path.open("r", encoding="utf-8", errors="replace") as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    if not scan_comments and is_comment_or_blank(line, extension):
+                        continue
+                    for rule_id, pattern, expected, regex in file_specific:
+                        if regex.search(line):
+                            findings.append(
+                                Finding(
+                                    file=str(file_path),
+                                    line=line_number,
+                                    severity="specific",
+                                    rule_id=rule_id,
+                                    pattern=pattern,
+                                    snippet=line[:140].strip(),
+                                    message=f"FAIL! should be {expected}",
+                                )
+                            )
+                    for severity, pattern, regex in file_generic:
+                        # Keep historical behavior: require leading whitespace before check.
+                        if re.search(rf"\s{pattern}", line, flags=re.IGNORECASE):
+                            findings.append(
+                                Finding(
+                                    file=str(file_path),
+                                    line=line_number,
+                                    severity=severity,
+                                    rule_id=pattern,
+                                    pattern=pattern,
+                                    snippet=line[:140].strip(),
+                                )
+                            )
+                    if max_findings and len(findings) >= max_findings:
+                        return ScanResult(files_scanned, findings, compile_errors)
+        except OSError as exc:
+            compile_errors.append(f"Unable to read {file_path}: {exc}")
+    return ScanResult(files_scanned, findings, compile_errors)
+
+
+def severity_rank(severity):
+    order = {"low": 1, "medium": 2, "high": 3, "specific": 4}
+    return order.get(severity, 0)
+
+
+def has_failing_findings(findings, fail_on):
+    """Return True if any finding meets/exceeds fail_on severity."""
+    threshold = severity_rank(fail_on)
+    return any(severity_rank(item.severity) >= threshold for item in findings)
+
+
+def render_text(result, show_ok=False):
+    """Render text output compatible with terminal usage."""
+    lines = [
+        "=====================================================",
+        "==         EYE OF SAURON                           ==",
+        '==       "the eye sees all"                        ==',
+        "=====================================================",
+        "",
+    ]
+    if result.compile_errors:
+        lines.append("CONFIG/RUNTIME ERRORS:")
+        lines.extend(f"- {err}" for err in result.compile_errors)
+        lines.append("")
+
+    if not result.findings:
+        lines.append("No findings.")
+    else:
+        for item in result.findings:
+            if item.message:
+                lines.append(
+                    f"[{item.severity.upper()}]\t{item.file}:{item.line}\t{item.rule_id}\t{item.message}"
+                )
+            else:
+                lines.append(
+                    f"[{item.severity.upper()}]\t{item.file}:{item.line}\t{item.rule_id}\t{item.snippet}"
+                )
+    if show_ok:
+        lines.append("")
+        lines.append(f"Files scanned: {result.files_scanned}")
+        lines.append(f"Findings: {len(result.findings)}")
+    return "\n".join(lines)
+
+
+def render_json(result):
+    """Render machine-readable output."""
+    payload = {
+        "files_scanned": result.files_scanned,
+        "findings_count": len(result.findings),
+        "compile_errors": result.compile_errors,
+        "findings": [asdict(item) for item in result.findings],
+    }
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def main(argv=None):
+    """CLI entrypoint."""
+    args = parse_args(argv or sys.argv[1:])
+    runtime_rules = copy.deepcopy(DEFAULT_RULES)
+
+    if args.quick:
+        active_levels = ["high"]
+    else:
+        active_levels = [level.lower() for level in _csv_list(args.scan_levels)]
+    active_levels = [level for level in active_levels if level in ("high", "medium", "low")]
+    if not active_levels:
+        active_levels = ["high"]
+
+    include_folders = _csv_list(args.folders)
+    ignored_patterns = _csv_list(args.ignore)
+    exclude_dirs = _csv_list(args.exclude_dirs)
+
+    result = scan_with_rules(
+        rule_config=runtime_rules,
+        topdir=args.topdir,
+        include_folders=include_folders,
+        active_levels=active_levels,
+        ignored_patterns=ignored_patterns,
+        exclude_dirs=exclude_dirs,
+        scan_comments=args.scan_comments,
+        max_findings=max(0, args.max_findings),
+    )
+
+    if args.format == "json":
+        print(render_json(result))
+    else:
+        print(render_text(result, show_ok=args.verbose))
+
+    if result.compile_errors:
+        return 2
+    if has_failing_findings(result.findings, args.fail_on):
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    main(sys.argv[1:])	
-
+    raise SystemExit(main())
