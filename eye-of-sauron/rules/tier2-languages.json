@@ -1,0 +1,82 @@
+{
+  "extensions": [".rs", ".cs", ".kt", ".swift", ".scala", ".sql", ".dockerfile"],
+  "rule_set": {
+    ".rs": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "RUST_COMMAND_EXEC", "pattern": "std::process::Command::new\\(", "description": "Command execution sink in Rust."}
+        ],
+        "medium": [
+          {"id": "RUST_UNWRAP", "pattern": "\\.unwrap\\(", "description": "Unchecked unwrap may cause runtime panic in sensitive paths."}
+        ],
+        "low": []
+      }
+    },
+    ".cs": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "CSHARP_PROCESS_START", "pattern": "Process\\.Start\\(", "description": "External process execution in C#."},
+          {"id": "CSHARP_SQL_CONCAT", "pattern": "SELECT\\s+.*\\+\\s*", "description": "Potential SQL concatenation pattern."}
+        ],
+        "medium": [],
+        "low": []
+      }
+    },
+    ".kt": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "KOTLIN_RUNTIME_EXEC", "pattern": "Runtime\\.getRuntime\\(\\)\\.exec\\(", "description": "Command execution sink in Kotlin/JVM."}
+        ],
+        "medium": [],
+        "low": []
+      }
+    },
+    ".swift": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "SWIFT_PROCESS_RUN", "pattern": "\\bProcess\\(", "description": "External process launch in Swift."}
+        ],
+        "medium": [],
+        "low": []
+      }
+    },
+    ".scala": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "SCALA_SYS_PROCESS", "pattern": "sys\\.process|Process\\(", "description": "Potential process execution in Scala."}
+        ],
+        "medium": [],
+        "low": []
+      }
+    },
+    ".sql": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "SQL_XP_CMDSHELL", "pattern": "xp_cmdshell", "description": "Dangerous command execution from SQL context."}
+        ],
+        "medium": [
+          {"id": "SQL_GRANT_ALL", "pattern": "GRANT\\s+ALL\\s+PRIVILEGES", "description": "Overly broad privilege grant."}
+        ],
+        "low": []
+      }
+    },
+    ".dockerfile": {
+      "specific": {},
+      "general": {
+        "high": [
+          {"id": "DOCKER_LATEST_TAG", "pattern": "FROM\\s+\\S+:latest", "description": "Unpinned image tag in Dockerfile."}
+        ],
+        "medium": [
+          {"id": "DOCKER_ADD_REMOTE_URL", "pattern": "ADD\\s+https?://", "description": "Remote URL fetch in Dockerfile ADD instruction."}
+        ],
+        "low": []
+      }
+    }
+  }
+}

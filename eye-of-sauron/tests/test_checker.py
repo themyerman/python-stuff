@@ -191,6 +191,10 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(findings[0].severity, "high")
         self.assertTrue(findings[0].rule_id.startswith("SEMGREP::"))
 
+    def test_detect_file_key_dockerfile(self):
+        self.assertEqual(checker._detect_file_key("Dockerfile"), ".dockerfile")
+        self.assertEqual(checker._detect_file_key("main.py"), ".py")
+
 
 if __name__ == "__main__":
     unittest.main()

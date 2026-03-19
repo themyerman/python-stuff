@@ -3,12 +3,14 @@
 
 import argparse
 import copy
+import datetime
 import fnmatch
 import importlib.util
 import json
 import re
 import subprocess
 import sys
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -55,11 +57,19 @@ COMMENT_PREFIXES = {
     ".yml": ("#",),
     ".yaml": ("#",),
     ".tf": ("#", "//", "/*", "*"),
+    ".rs": ("//", "/*", "*"),
+    ".cs": ("//", "/*", "*"),
+    ".kt": ("//", "/*", "*"),
+    ".swift": ("//", "/*", "*"),
+    ".scala": ("//", "/*", "*"),
+    ".sql": ("--", "/*", "*"),
+    ".dockerfile": ("#",),
 }
 PROFILE_EXTENSIONS = {
     "default": None,
     "web": {".php", ".js", ".ts", ".tsx", ".module", ".inc"},
     "backend": {".py", ".go", ".java", ".rb", ".sh"},
+    "platform": {".rs", ".cs", ".kt", ".swift", ".scala", ".sql", ".dockerfile"},
     "full": None,
 }
 
@@ -178,6 +188,11 @@ def parse_args(argv):
         default="auto",
         help="Semgrep config to use with --use-semgrep (for example: auto, p/owasp-top-ten).",
     )
+    parser.add_argument(
+        "--log-dir",
+        default=str(Path(__file__).resolve().parent / "logs"),
+        help="Directory for per-run scanner logs.",
+    )
     return parser.parse_args(argv)
 
 
@@ -273,9 +288,17 @@ def _iter_target_files(topdir, include_folders, valid_extensions, exclude_dirs):
             if not (include_set & root_parts):
                 continue
         for filename in files:
-            extension = Path(filename).suffix
+            extension = _detect_file_key(filename)
             if extension in valid_extensions:
                 yield root_path / filename
+
+
+def _detect_file_key(filename):
+    """Map file name to extension key used by rule config."""
+    lower = filename.lower()
+    if lower == "dockerfile":
+        return ".dockerfile"
+    return Path(filename).suffix.lower()
 
 
 def os_walk(path):
@@ -385,7 +408,7 @@ def scan_with_rules(
         extensions = extensions & set(allowed_extensions)
     for file_path in _iter_target_files(topdir, include_folders, extensions, exclude_dirs):
         files_scanned += 1
-        extension = file_path.suffix
+        extension = _detect_file_key(file_path.name)
         file_specific = compiled_specific.get(extension, {}).get(file_path.name, [])
         file_generic = compiled_generic.get(extension, [])
         try:
@@ -531,6 +554,27 @@ def render_sarif(result):
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
+def write_run_log(log_dir, args, result, rendered_output, output_format):
+    """Write a per-run log file to disk with a unique name."""
+    target_dir = Path(log_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    run_id = uuid.uuid4().hex[:12]
+    log_path = target_dir / f"scan-{timestamp}-{run_id}.log"
+    payload = {
+        "timestamp_utc": timestamp,
+        "run_id": run_id,
+        "args": vars(args),
+        "files_scanned": result.files_scanned,
+        "findings_count": len(result.findings),
+        "compile_errors_count": len(result.compile_errors),
+        "output_format": output_format,
+        "output": rendered_output,
+    }
+    log_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return log_path
+
+
 def parse_semgrep_json_payload(payload_text):
     """Parse semgrep JSON output and convert to local findings."""
     try:
@@ -641,11 +685,16 @@ def main(argv=None):
         write_baseline(args.write_baseline, result.findings)
 
     if args.format == "json":
-        print(render_json(result))
+        rendered = render_json(result)
     elif args.format == "sarif":
-        print(render_sarif(result))
+        rendered = render_sarif(result)
     else:
-        print(render_text(result, show_ok=args.verbose))
+        rendered = render_text(result, show_ok=args.verbose)
+    print(rendered)
+
+    log_path = write_run_log(args.log_dir, args, result, rendered, args.format)
+    if args.format == "text":
+        print(f"\nLog written: {log_path}")
 
     if result.compile_errors:
         return 2
