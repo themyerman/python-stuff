@@ -196,6 +196,11 @@ def parse_args(argv):
         default=str(Path(__file__).resolve().parent / "logs"),
         help="Directory for per-run scanner logs.",
     )
+    parser.add_argument(
+        "--punchlist",
+        action="store_true",
+        help="Write a markdown punch list to ./punchlist for this run.",
+    )
     return parser.parse_args(argv)
 
 
@@ -557,6 +562,62 @@ def render_sarif(result):
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
+def _sort_findings_for_punchlist(findings):
+    """Sort findings by severity, file, then line."""
+    return sorted(
+        findings,
+        key=lambda item: (-severity_rank(item.severity), item.file.lower(), item.line, item.rule_id),
+    )
+
+
+def render_punchlist_markdown(result):
+    """Render findings as a developer-friendly markdown checklist."""
+    ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
+    lines = [
+        "# Eye of Sauron Punch List",
+        "",
+        f"Generated: `{ts}`",
+        f"Files scanned: **{result.files_scanned}**",
+        f"Findings: **{len(result.findings)}**",
+        "",
+    ]
+    if result.compile_errors:
+        lines.extend(["## Scanner Warnings", ""])
+        for err in result.compile_errors:
+            lines.append(f"- {err}")
+        lines.append("")
+
+    if not result.findings:
+        lines.extend(["## Action Items", "", "- [x] No findings."])
+        return "\n".join(lines)
+
+    buckets = {"high": [], "medium": [], "low": [], "specific": []}
+    for item in _sort_findings_for_punchlist(result.findings):
+        buckets.setdefault(item.severity, []).append(item)
+
+    lines.append("## Action Items")
+    lines.append("")
+    for severity in ("high", "medium", "low", "specific"):
+        group = buckets.get(severity, [])
+        if not group:
+            continue
+        lines.append(f"### {severity.upper()} ({len(group)})")
+        lines.append("")
+        for item in group:
+            title = f"- [ ] `{item.file}:{item.line}` - `{item.rule_id}`"
+            lines.append(title)
+            if item.description:
+                lines.append(f"  - why: {item.description}")
+            if item.remediation:
+                lines.append(f"  - fix: {item.remediation}")
+            elif item.message:
+                lines.append(f"  - fix: {item.message}")
+            if item.snippet:
+                lines.append(f"  - snippet: `{item.snippet}`")
+            lines.append("")
+    return "\n".join(lines)
+
+
 def write_run_log(log_dir, args, result, rendered_output, output_format):
     """Write a per-run log file to disk with a unique name."""
     target_dir = Path(log_dir)
@@ -576,6 +637,18 @@ def write_run_log(log_dir, args, result, rendered_output, output_format):
     }
     log_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return log_path
+
+
+def write_punchlist(punchlist_dir, result):
+    """Write markdown punch list to a timestamped file."""
+    target_dir = Path(punchlist_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    run_id = uuid.uuid4().hex[:12]
+    punchlist_path = target_dir / f"scan-{timestamp}-{run_id}.md"
+    markdown = render_punchlist_markdown(result)
+    punchlist_path.write_text(markdown, encoding="utf-8")
+    return punchlist_path
 
 
 def parse_semgrep_json_payload(payload_text):
@@ -700,8 +773,12 @@ def main(argv=None):
     print(rendered)
 
     log_path = write_run_log(args.log_dir, args, result, rendered, args.format)
+    if args.punchlist:
+        punchlist_path = write_punchlist(Path(args.topdir).resolve() / "punchlist", result)
     if args.format == "text":
         print(f"\nLog written: {log_path}")
+        if args.punchlist:
+            print(f"Punch list written: {punchlist_path}")
 
     if result.compile_errors:
         return 2

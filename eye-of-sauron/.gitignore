@@ -27,6 +27,7 @@ scan-results.sarif
 *.sarif
 *.tmp.json
 logs/
+punchlist/
 
 # Local suppression/override files (keep examples tracked)
 *.local.suppressions.txt

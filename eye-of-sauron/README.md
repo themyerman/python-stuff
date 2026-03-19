@@ -53,6 +53,7 @@ Security-pattern scanner for legacy and modern codebases.
 - `python3 checker.py -t /path/to/repo --use-semgrep --semgrep-profile fast`
 - `python3 checker.py -t /path/to/repo --use-semgrep --semgrep-profile strict`
 - `python3 checker.py -t /path/to/repo --log-dir ./logs`
+- `python3 checker.py -t /path/to/repo --punchlist`
 
 ## Notes
 
@@ -85,6 +86,7 @@ Security-pattern scanner for legacy and modern codebases.
   - `strict`: `p/secrets`, `p/security-audit`, `p/owasp-top-ten`
 - `--semgrep-config` overrides profile defaults; pass comma-separated config values.
 - Every run writes a unique JSON log file to `logs/` by default (override with `--log-dir`).
+- `--punchlist` writes a markdown checklist to `punchlist/scan-<timestamp>-<id>.md`.
 
 ## Next Steps
 

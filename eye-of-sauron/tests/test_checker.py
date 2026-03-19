@@ -203,6 +203,28 @@ class CheckerTests(unittest.TestCase):
         custom = checker.resolve_semgrep_configs("fast", "auto,p/secrets")
         self.assertEqual(custom, ["auto", "p/secrets"])
 
+    def test_render_punchlist_markdown(self):
+        result = checker.ScanResult(
+            files_scanned=3,
+            findings=[
+                checker.Finding(
+                    file="/tmp/app.py",
+                    line=10,
+                    severity="high",
+                    rule_id="PY_EVAL_EXEC",
+                    pattern=r"\beval\(",
+                    snippet="eval(user_input)",
+                    description="Dynamic execution in Python.",
+                    remediation="Avoid eval/exec on untrusted input.",
+                )
+            ],
+            compile_errors=[],
+        )
+        md = checker.render_punchlist_markdown(result)
+        self.assertIn("# Eye of Sauron Punch List", md)
+        self.assertIn("`/tmp/app.py:10` - `PY_EVAL_EXEC`", md)
+        self.assertIn("fix: Avoid eval/exec on untrusted input.", md)
+
 
 if __name__ == "__main__":
     unittest.main()
