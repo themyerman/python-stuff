@@ -26,10 +26,12 @@ def _build_genres(config: dict) -> dict:
     genres = {}
     for key, g in config.get("genres", {}).items():
         influences = g.get("influences", [])
+        screen = g.get("screen_influences", [])
         prefs = g.get("preferences", "").strip()
         if influences:
-            inf_str = ", ".join(influences)
-            prefs = f"{prefs} Tonal influences: {inf_str}."
+            prefs = f"{prefs} Literary influences: {', '.join(influences)}."
+        if screen:
+            prefs = f"{prefs} Screen influences: {', '.join(screen)}."
         genres[key] = {
             "label": g["label"],
             "icon": g["icon"],

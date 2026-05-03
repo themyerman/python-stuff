@@ -26,6 +26,14 @@ genres:
       - Joe Haldeman (war, trauma, the long cost)
       - Iain M. Banks (post-scarcity complexity, dark wit)
       - Elliott Kay (grounded characters in big situations)
+    screen_influences:
+      - Battlestar Galactica reboot (moral collapse under pressure, no clean heroes)
+      - The X-Files (paranoia, the unknown just out of reach)
+      - Firefly (found family on the margins, lived-in future)
+      - Eureka (small-town warmth wrapped around big science)
+      - E.T. (wonder, loneliness, the alien as mirror)
+      - Back to the Future (consequence, comedy, heart)
+      - Time Bandits (surreal, dark, history as playground)
 
   fantasy:
     label: Fantasy
@@ -37,6 +45,12 @@ genres:
     influences:
       - Terry Pratchett (dark humour, humanity beneath the grime)
       - Joe Abercrombie (brutal realism, characters who do terrible things for understandable reasons)
+    screen_influences:
+      - Pan's Labyrinth (dark fairy tale, the real world as cruel as the fantasy)
+      - The Lord of the Rings (epic scope, the weight of history, sacrifice)
+      - Ladyhawke (bittersweet, cursed love, beauty and loss)
+      - Highlander (immortality as burden, identity across centuries)
+      - Jumanji (rules with teeth, the game that plays back)
 
   western:
     label: Western
@@ -54,6 +68,23 @@ genres:
       - Margaret Coel (Arapaho culture at the center)
       - Tony Hillerman (place-driven, Southwest detective tradition)
 
+  ww2:
+    label: WW2
+    icon: "🪖"
+    color: "#2a2a1a"
+    preferences: >
+      WW2 fiction with pulp energy and moral complexity. Revisionist history welcome.
+      Small units, impossible missions, dark humor under fire. The cost of violence
+      alongside its absurdity. Characters who survive by being creative, ruthless, or lucky —
+      sometimes all three.
+    influences:
+      - Joseph Heller (Catch-22 — absurdist systems, the bureaucracy of death)
+      - Alistair MacLean (tense, plot-driven, men against impossible odds)
+    screen_influences:
+      - Inglourious Basterds (revisionist, pulpy, violence as spectacle and consequence)
+      - Sisu (one man, impossible odds, darkly comedic brutality)
+      - The Ministry of Ungentlemanly Warfare (caper energy, real stakes, charismatic ruthlessness)
+
   mystery:
     label: Mystery
     icon: "🕵️"
@@ -66,3 +97,26 @@ genres:
       - Dennis Lehane (Boston working-class, moral ambiguity)
       - John Sandford (procedural tension, dark humor)
       - Robert Crais (character-driven LA detective work)
+    screen_influences:
+      - Drive (silence, violence, a man defined by one thing)
+      - L.A. Confidential (institutional corruption, glamour over rot)
+      - Body Heat (heat, desire, everyone lying to everyone)
+
+  thriller:
+    label: Thriller / Espionage
+    icon: "🔫"
+    color: "#1a1a2a"
+    preferences: >
+      Espionage, political thrillers, and tradecraft fiction. Moral ambiguity baked in —
+      the right side and wrong side look identical from inside the operation.
+      Tension through information gaps, not action. Characters who are good at terrible things.
+    influences:
+      - John le Carré (institutional betrayal, the human cost of the game)
+      - Graham Greene (conscience under pressure, faith and doubt in the field)
+      - Charles McCarry (Cold War realism, the long slow burn)
+      - Daniel Silva (operational detail, contemporary stakes)
+    screen_influences:
+      - Tinker Tailor Soldier Spy (bureaucratic paranoia, silence as weapon)
+      - The Americans (the cost of the life, identity erosion)
+      - Three Days of the Condor (anyone could be the enemy)
+      - No Country for Old Men (unstoppable force, fate as antagonist)
