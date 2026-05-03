@@ -1,6 +1,0 @@
-# Minimal deps to run tests from a git checkout without ``pip install .``:
-PyYAML>=6.0.1
-
-# To install the CLI and bundled rules into the environment:
-#   pip install .
-#   pip install -e .    # editable (needs a recent pip with PEP 660 support)

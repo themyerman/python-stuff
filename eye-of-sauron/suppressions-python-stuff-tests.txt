@@ -1,6 +1,0 @@
-# Suppress known test-fixture patterns in this workspace.
-# Format: path_glob:rule_id
-
-*/python-stuff/eye-of-sauron/tests/test_checker.py:PY_EVAL_EXEC
-*/python-stuff/ai-security-control-plane/tests/test_dashboard.py:GENERIC_API_KEY
-*/python-stuff/ai-security-control-plane/tests/test_adversarial.py:GENERIC_API_KEY
