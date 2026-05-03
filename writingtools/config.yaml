@@ -4,6 +4,9 @@
 
 writer_profile:
   influences:
+    - Albert Camus (absurdism, the stranger in the world, defiance as the only honest response)
+    - Geoffrey Chaucer (human comedy, the pilgrimage as frame, every voice distinct and flawed)
+    - William Goldman (nobody knows anything — wit, structure, the hero who almost doesn't make it)
     - Voltaire (wit, moral clarity, the absurd used as a blade)
     - Kurt Vonnegut (dark humor, humanity under pressure, structural playfulness)
     - Dante (moral architecture, the descent, consequence as landscape)
@@ -98,6 +101,7 @@ genres:
       - Terry Pratchett (dark humour, humanity beneath the grime)
       - Joe Abercrombie (brutal realism, characters who do terrible things for understandable reasons)
     screen_influences:
+      - The Princess Bride (Goldman — wit and heart, the fairy tale that knows it's a fairy tale)
       - Pan's Labyrinth (dark fairy tale, the real world as cruel as the fantasy)
       - The Lord of the Rings (epic scope, the weight of history, sacrifice)
       - Ladyhawke (bittersweet, cursed love, beauty and loss)
@@ -112,6 +116,8 @@ genres:
       Neo-westerns and classic westerns. Moral complexity, landscape as a force,
       survival and justice on the margins. Characters shaped by place and history.
     influences:
+      - Butch Cassidy and the Sundance Kid (Goldman — charm under pressure, the end of an era, doomed friendship)
+      - The Magnificent Seven (hired guns with a conscience, sacrifice for strangers, found purpose)
       - Cormac McCarthy (brutal landscape, moral void, spare language)
       - Annie Proulx (Wyoming — place as fate, unforgiving and beautiful)
       - Taylor Sheridan (modern moral complexity, landscape as character)
@@ -136,6 +142,7 @@ genres:
       - Inglourious Basterds (revisionist, pulpy, violence as spectacle and consequence)
       - Sisu (one man, impossible odds, darkly comedic brutality)
       - The Ministry of Ungentlemanly Warfare (caper energy, real stakes, charismatic ruthlessness)
+      - The Bridge on the River Kwai (duty vs. survival, the absurdity of honour, who wins when everyone loses)
 
   mystery:
     label: Mystery
@@ -185,5 +192,6 @@ genres:
       - The 39 Steps (Hitchcock — the wrong man, keep moving or die)
       - Tinker Tailor Soldier Spy (bureaucratic paranoia, silence as weapon)
       - The Americans (the cost of the life, identity erosion)
+      - Casablanca (the impossible choice, love vs. duty, sacrifice as the only noble act)
       - Three Days of the Condor (anyone could be the enemy)
       - The Bone Collector (the immobile detective, the city as crime scene, the clock)
