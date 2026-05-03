@@ -12,7 +12,7 @@ dependencies = [
     "Jinja2>=3.1",
     "Pillow>=10.0",
     "click>=8.1",
-    "duckduckgo-search>=6.0",
+    "ddgs>=0.1",
 ]
 
 [project.scripts]
