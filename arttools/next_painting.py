@@ -3,6 +3,7 @@ import io
 import json
 import os
 import sys
+import re
 import urllib.request
 from pathlib import Path
 
@@ -52,11 +53,15 @@ def cli(source, count, context, style):
 
 
 def _load_image_descriptions(source: str, max_count: int) -> list[dict]:
-    """Load image metadata from a directory or from myerman.art's search.json."""
+    """Load image metadata from a local directory or a URL.
+
+    For URLs, tries /search.json first (myerman.art format), then falls back
+    to scraping <img> tags from the page — works on any portfolio site.
+    """
     src = source.rstrip("/")
 
     if src.startswith("http://") or src.startswith("https://"):
-        return _fetch_from_site(src, max_count)
+        return _fetch_from_url(src, max_count)
     else:
         return _scan_directory(Path(src), max_count)
 
@@ -92,27 +97,64 @@ def _scan_directory(directory: Path, max_count: int) -> list[dict]:
     return descriptions
 
 
-def _fetch_from_site(base_url: str, max_count: int) -> list[dict]:
-    """Fetch the works list from myerman.art's search.json."""
-    # Try /search.json
+def _fetch_from_url(base_url: str, max_count: int) -> list[dict]:
+    """Fetch works from a URL. Tries /search.json first, falls back to scraping <img> tags."""
+    # Try /search.json (myerman.art and compatible sites)
     search_url = base_url.rstrip("/") + "/search.json"
     try:
         with urllib.request.urlopen(search_url, timeout=10) as resp:
             data = json.loads(resp.read())
+        works = data[:max_count]
+        return [
+            {
+                "filename": w.get("slug", ""),
+                "title": w.get("title", ""),
+                "tags": ", ".join(w.get("tags", [])),
+                "story": (w.get("story", "")[:120] + "…") if w.get("story") else "",
+            }
+            for w in works
+        ]
+    except Exception:
+        pass
+
+    # Fallback: scrape <img> tags from the page
+    click.echo(f"  No search.json found — scraping images from {base_url}", err=True)
+    try:
+        req = urllib.request.Request(base_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
     except Exception as e:
-        click.echo(f"Could not fetch {search_url}: {e}", err=True)
+        click.echo(f"Could not fetch {base_url}: {e}", err=True)
         return []
 
-    works = data[:max_count]
-    return [
-        {
-            "filename": w.get("slug", ""),
-            "title": w.get("title", ""),
-            "tags": ", ".join(w.get("tags", [])),
-            "story": (w.get("story", "")[:120] + "…") if w.get("story") else "",
-        }
-        for w in works
-    ]
+    # Extract src and alt from <img> tags
+    img_pattern = re.compile(r'<img[^>]+>', re.IGNORECASE)
+    src_pattern  = re.compile(r'\bsrc=["\']([^"\']+)["\']', re.IGNORECASE)
+    alt_pattern  = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
+
+    results = []
+    for tag in img_pattern.findall(html):
+        src_m = src_pattern.search(tag)
+        if not src_m:
+            continue
+        src = src_m.group(1)
+        # Skip tiny UI images (icons, logos, spacers)
+        if any(skip in src.lower() for skip in ("icon", "logo", "avatar", "pixel", "spacer", "1x1")):
+            continue
+        ext = src.rsplit(".", 1)[-1].lower().split("?")[0]
+        if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+            continue
+        alt = alt_pattern.search(tag)
+        filename = src.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        results.append({
+            "filename": filename,
+            "title": alt.group(1) if alt and alt.group(1) else filename,
+            "src": src,
+        })
+        if len(results) >= max_count:
+            break
+
+    return results
 
 
 def _generate_suggestions(works: list[dict], context: str, style: str) -> str:
