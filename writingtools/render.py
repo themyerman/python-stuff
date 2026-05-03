@@ -59,6 +59,40 @@ body {
   line-height: 1.75;
   color: #ddd;
 }
+details.beats {
+  background: #111;
+  border-top: 1px solid #222;
+}
+details.beats summary {
+  padding: 10px 20px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+details.beats summary::-webkit-details-marker { display: none; }
+details.beats summary::after {
+  content: " ▾";
+  font-size: 0.65rem;
+}
+details.beats[open] summary::after {
+  content: " ▴";
+}
+details.beats summary:hover { color: #888; }
+details.beats ol {
+  padding: 4px 20px 18px 36px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #666;
+}
+details.beats ol li { margin-bottom: 4px; }
+details.beats ol li:last-child { margin-bottom: 0; }
 .footer {
   margin-top: 36px;
   padding-top: 20px;
@@ -72,7 +106,12 @@ body {
 """
 
 
-def render_email(prompts: dict[str, str], genres: dict, voice_names: dict | None = None) -> str:
+def render_email(
+    prompts: dict[str, str],
+    genres: dict,
+    voice_names: dict | None = None,
+    beats_map: dict | None = None,
+) -> str:
     today = date.today().strftime("%A, %B %-d, %Y")
 
     cards = []
@@ -81,12 +120,27 @@ def render_email(prompts: dict[str, str], genres: dict, voice_names: dict | None
         icon = g.get("icon", "✦")
         label = g.get("label", key.title())
         color = g.get("color", "#1a1a1a")
+
         vname = (voice_names or {}).get(key)
         voice_badge = (
             f'<span style="margin-left: auto; font-weight: 400; opacity: 0.6; '
             f'text-transform: none; letter-spacing: 0;">{vname}</span>'
             if vname and vname != "neutral" else ""
         )
+
+        beats = (beats_map or {}).get(key, [])
+        if beats:
+            beat_items = "\n".join(f"    <li>{b}</li>" for b in beats)
+            beats_html = f"""
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+{beat_items}
+    </ol>
+  </details>"""
+        else:
+            beats_html = ""
+
         cards.append(f"""
   <div class="card">
     <div class="card-header" style="background: {color};">
@@ -94,7 +148,7 @@ def render_email(prompts: dict[str, str], genres: dict, voice_names: dict | None
       <span>{label}</span>
       {voice_badge}
     </div>
-    <div class="card-body">{text}</div>
+    <div class="card-body">{text}</div>{beats_html}
   </div>""")
 
     cards_html = "\n".join(cards)
