@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <meta name="description" content="{{ title }} — digital art print by Tom Myer. Available as a fine art print.">
+ <meta property="og:title" content="{{ title }} — myerman.art">
+ <meta property="og:description" content="{{ title }} — digital art by Tom Myer. Available as a fine art print.">
+ <meta property="og:image" content="https://myerman.art/prints/{{ slug }}/{{ slug }}-display.jpg">
+ <meta property="og:type" content="website">
+ <meta property="og:url" content="https://myerman.art/prints/{{ slug }}/">
+ <title>{{ title }} — myerman.art</title>
+ <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+ <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+ <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+ <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+ <link rel="stylesheet" href="/css/style.css">
+ <!-- Google tag (gtag.js) -->
+ <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZTXD2V13JR"></script>
+ <script>
+ window.dataLayer = window.dataLayer || [];
+ function gtag(){dataLayer.push(arguments);}
+ gtag('js', new Date());
+ gtag('config', 'G-ZTXD2V13JR');
+ </script>
+</head>
+<body data-slug="{{ slug }}" data-size="{{ size }}" data-sku="{{ sku }}" data-title="{{ title }}">
+
+ <nav class="site-nav" aria-label="Main navigation">
+ <div class="container">
+ <a href="/" class="nav-logo">myerman.art</a>
+ <ul class="nav-links" role="list">
+ <li><a href="/">Home</a></li>
+ <li><a href="/prints/" aria-current="page">Prints</a></li>
+ <li><a href="/cards/">Postcards</a></li>
+ <li><a href="/about/">About</a></li>
+ <li><a href="/patreon/">Patreon</a></li>
+ <li><a href="/search/">Search</a></li>
+ <li><a href="/cart/" class="nav-cart">Cart <span class="cart-count" id="cart-count">0</span></a></li>
+ </ul>
+ </div>
+ </nav>
+
+ <main>
+ <div class="container section">
+ <div class="piece-layout">
+
+ <div class="piece-image-wrap">
+ <img src="/prints/{{ slug }}/{{ slug }}-display.jpg"
+ alt="{{ title }} — digital artwork by Tom Myer"
+ width="{{ display_width }}"
+ height="{{ display_height }}"
+ loading="eager">
+ </div>
+
+ <div class="piece-info">
+ <a href="/prints/" class="back-link">&#8592; All prints</a>
+ <h1>{{ title }}</h1>
+
+ <p class="piece-story">{{ description }}</p>
+
+ <div class="order-btn-wrap">
+   <button class="btn btn-primary btn-add-to-cart">Add to Cart — ${{ price }}</button>
+   <p class="order-note">{{ size_display }} print</p>
+ </div>
+
+ <div class="patreon-nudge">
+ <p>Want to see new work before anyone else? Join the Patreon for early access, process videos, and high-res downloads. From $3/month.</p>
+ <a href="https://patreon.com/myerman" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">Join Patreon &#8594;</a>
+ </div>
+
+ </div>
+ </div>
+ </div>
+</main>
+
+ <footer class="site-footer">
+ <div class="container">
+ <div class="footer-inner">
+ <p class="footer-copy">&copy; 2026 Tom Myer. All rights reserved.</p>
+ <ul class="footer-nav" role="list">
+ <li><a href="/">Home</a></li>
+ <li><a href="/prints/">Prints</a></li>
+ <li><a href="/cards/">Postcards</a></li>
+ <li><a href="/about/">About</a></li>
+ <li><a href="/patreon/">Patreon</a></li>
+ <li><a href="https://linktr.ee/myerman" target="_blank" rel="noopener noreferrer">Contact</a></li>
+ </ul>
+ </div>
+ </div>
+ </footer>
+
+ <script src="/js/cart.js"></script>
+</body>
+</html>

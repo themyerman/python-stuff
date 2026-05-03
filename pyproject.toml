@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arttools"
+version = "0.1.0"
+description = "AI-powered publishing and creative tools for independent artists"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.25.0",
+    "Jinja2>=3.1",
+    "Pillow>=10.0",
+    "click>=8.1",
+]
+
+[project.scripts]
+publish-print = "arttools.publish_print:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["arttools*"]
+
+[tool.setuptools.package-data]
+arttools = ["templates/*.html"]

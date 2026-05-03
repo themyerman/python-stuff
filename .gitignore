@@ -1,17 +1,6 @@
-# Python bytecode & caches
 __pycache__/
-*.py[cod]
-*$py.class
 *.pyc
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.hypothesis/
-.ipynb_checkpoints/
-
-# Eye of Sauron punch list (per-run subfolders: */punchlist/scan-<id>/…)
-**/punchlist/
-**/punchlist/**
-
-# OS / editor
-.DS_Store
+*.egg-info/
+dist/
+build/
+.env
