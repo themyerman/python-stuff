@@ -16,7 +16,14 @@ SAMPLE_PROMPTS = {
     "mystery": "The victim was found in a locked library with a lit cigar, a half-eaten meal, and every clock in the room stopped at different times.",
 }
 
+SAMPLE_VOICES = {
+    "neutral": "Crisp, evocative prose.",
+    "trailer": "In a world where... everything is at stake.",
+    "campfire": "Slow, oral, present tense.",
+}
+
 SAMPLE_CONFIG = {
+    "voices": SAMPLE_VOICES,
     "writer_profile": {
         "background": "Test author background.",
         "influences": ["Influence A (note)", "Influence B (note)"],
@@ -60,13 +67,6 @@ def _mock_client(prompts=SAMPLE_PROMPTS):
         choices=[MagicMock(message=MagicMock(content=json.dumps(prompts)))]
     )
     return mock
-
-
-SAMPLE_VOICES = {
-    "neutral": "Crisp, evocative prose.",
-    "trailer": "In a world where... everything is at stake.",
-    "campfire": "Slow, oral, present tense.",
-}
 
 
 # ── config loading ────────────────────────────────────────────────────────────

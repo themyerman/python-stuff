@@ -59,7 +59,7 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
               help="Generate only one genre (must match a key in config)")
 @click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
-@click.option("--voice", default="neutral", show_default=True,
+@click.option("--voice", default="random", show_default=True,
               help="Voice style: neutral, trailer, bestseller, xfiles, trashy, campfire, "
                    "kenburns, pulp, academic, or 'random' to assign a different voice per genre")
 @click.option("--print-html", is_flag=True, default=False,
