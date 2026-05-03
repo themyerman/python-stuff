@@ -12,6 +12,7 @@ dependencies = [
     "Jinja2>=3.1",
     "Pillow>=10.0",
     "click>=8.1",
+    "duckduckgo-search>=6.0",
 ]
 
 [project.scripts]
@@ -19,6 +20,7 @@ publish-print = "arttools.publish_print:cli"
 extract-palette = "arttools.extract_palette:cli"
 next-painting = "arttools.next_painting:cli"
 patreon-plan = "arttools.patreon_plan:cli"
+mood-board = "arttools.mood_board:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
