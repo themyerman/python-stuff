@@ -13,7 +13,7 @@ body {
   padding: 0;
 }
 .wrapper {
-  max-width: 620px;
+  max-width: 600px;
   margin: 0 auto;
   padding: 32px 24px;
 }
@@ -39,7 +39,7 @@ body {
 
 /* ── Story starter cards ─────────────────────────────────────────────── */
 .card {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #252525;
@@ -65,56 +65,30 @@ body {
 }
 .card-lens {
   background: #111;
-  padding: 7px 16px;
+  padding: 6px 16px;
   font-family: system-ui, sans-serif;
   font-size: 0.72rem;
   color: #555;
   font-style: italic;
   border-bottom: 1px solid #1e1e1e;
 }
-
-/* ── Three-part story body ───────────────────────────────────────────── */
 .card-body {
   background: #161616;
+  padding: 22px 22px 20px;
 }
-.story-row {
-  display: flex;
-  padding: 16px 20px;
-  border-bottom: 1px solid #1e1e1e;
-  gap: 14px;
-}
-.story-row:last-child {
-  border-bottom: none;
-}
-.story-label {
-  font-family: system-ui, sans-serif;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #555;
-  min-width: 80px;
-  padding-top: 3px;
-  flex-shrink: 0;
-}
-.story-text {
-  font-size: 1.0rem;
-  line-height: 1.7;
+.card-prompt {
+  font-size: 1.08rem;
+  line-height: 1.75;
   color: #ddd;
+  margin-bottom: 18px;
 }
-
-/* Conflict gets special weight */
-.story-row.conflict {
-  background: #121212;
-  padding-top: 18px;
-  padding-bottom: 20px;
-}
-.story-row.conflict .story-label {
-  color: #664422;
-}
-.story-row.conflict .story-text {
-  color: #e8d8c8;
-  font-size: 1.05rem;
+.card-opening {
+  font-size: 0.97rem;
+  line-height: 1.7;
+  color: #a89880;
+  font-style: italic;
+  border-top: 1px solid #222;
+  padding-top: 16px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
@@ -138,83 +112,41 @@ body {
     </div>
     
   <div class="card">
-    <div class="card-header" style="background: #2a2a0a;">
-      <span>🎭</span>
-      <span>Satire / Fable</span>
-      <span class="voice-badge">dispatch</span>
+    <div class="card-header" style="background: #1a2a1a;">
+      <span>🕵️</span>
+      <span>Mystery</span>
+      <span class="voice-badge">kenburns</span>
     </div>
-    <div class="card-lens">via John Scalzi (wit and heart, humor as delivery mechanism for genuine stakes)</div>
+    <div class="card-lens">via Firefly (found family on the margins, lived-in future)</div>
     <div class="card-body">
-      <div class="story-row">
-        <div class="story-label">Protagonist</div>
-        <div class="story-text">Belinda, a cynical civil servant in a dystopian bureaucracy, desperately wants to escape the absurdity of her job and reveal the truth about the government's latest propaganda campaign.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Antagonist</div>
-        <div class="story-text">Minister Bluster, an eloquent yet deceitful politician, seeks to maintain the illusion of prosperity while silencing any dissent that threatens his grip on power.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Setting</div>
-        <div class="story-text">In a fluorescent-lit war room filled with outdated technology and piles of paperwork, the air thick with the smell of burnt coffee and desperation, the clock ticks ominously toward the next televised lie.</div>
-      </div>
-      <div class="story-row conflict">
-        <div class="story-label">Conflict</div>
-        <div class="story-text">Belinda’s quest for truth threatens to expose the Minister’s grand deception just as he prepares to launch a new initiative that will entrench his authority, putting them on a collision course where only one can emerge unscathed.</div>
-      </div>
+      <div class="card-prompt">Rain slicked the pavement as Detective Marlowe surveyed the body slumped against the alley wall, the neon lights casting a garish glow over the scene. A single gunshot wound marred the man's crisp suit, but it was the glint of a gold locket peeking from his pocket that drew Marlowe's eye, hinting at a web of deceit far more tangled than the apparent murder.</div>
+      <div class="card-opening">&ldquo;The city never sleeps, but tonight it was too busy lying to itself.&rdquo;</div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-header" style="background: #1a2a0a;">
-      <span>⚡</span>
-      <span>Adventure</span>
-      <span class="voice-badge">southern_gothic</span>
+    <div class="card-header" style="background: #2a0a0a;">
+      <span>🗡️</span>
+      <span>Revenge Tale</span>
+      <span class="voice-badge">xfiles</span>
     </div>
-    <div class="card-lens">via Highlander (immortality as burden, identity across centuries)</div>
+    <div class="card-lens">via Pan's Labyrinth (the fantasy is the horror, or the horror is the fantasy)</div>
     <div class="card-body">
-      <div class="story-row">
-        <div class="story-label">Protagonist</div>
-        <div class="story-text">Jed, a brash yet tender-hearted rogue, yearns to find the fabled shipwreck rumored to hold the lost treasure of a legendary pirate and prove himself to his estranged father.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Antagonist</div>
-        <div class="story-text">Captain Gwendolyn, a ruthless treasure hunter driven by revenge against Jed's father, seeks to claim the treasure for herself and bury the past along with its secrets.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Setting</div>
-        <div class="story-text">Amidst the relentless squalls and salt-caked wooden docks of Elmsworth Bay, where stories of the past swirl in the fog like ghosts, shadows of betrayal linger on every ship's deck.</div>
-      </div>
-      <div class="story-row conflict">
-        <div class="story-label">Conflict</div>
-        <div class="story-text">Jed's dream of redemption clashes with Gwendolyn’s thirst for vengeance, as finding the treasure could either heal his fractured family or unleash a cycle of violence that would leave them both shipwrecked.</div>
-      </div>
+      <div class="card-prompt">Beneath the cracked soil of her family's forgotten homestead, Elsa knew the truth of her father's demise lingered like a ghost refusing to lay still. As she tightened her grip on the rusty shovel, she felt the weight of every lie that had driven her to this moment, a reckoning that would demand every bit of her soul.</div>
+      <div class="card-opening">&ldquo;It wasn't enough to mourn; it was time to make them pay.&rdquo;</div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-header" style="background: #1a3a5c;">
-      <span>🚀</span>
-      <span>Science Fiction</span>
-      <span class="voice-badge">tarantino</span>
+    <div class="card-header" style="background: #1a0a2a;">
+      <span>🌀</span>
+      <span>Magic Realism</span>
+      <span class="voice-badge">trashy</span>
     </div>
-    <div class="card-lens">via Pan's Labyrinth (dark fairy tale, the real world as cruel as the fantasy)</div>
+    <div class="card-lens">via Galaxy Quest (the crew who become the heroes, fandom as genuine courage, never give up never surrender)</div>
     <div class="card-body">
-      <div class="story-row">
-        <div class="story-label">Protagonist</div>
-        <div class="story-text">Mira, a brilliant yet disillusioned scientist, is fiercely determined to create an AI capable of reversing the environmental collapse that has devastated Earth.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Antagonist</div>
-        <div class="story-text">The Corporate Council, a powerful conglomerate with a vested interest in exploiting the dying planet, aims to control Mira's research to consolidate their power and profit from the crisis.</div>
-      </div>
-      <div class="story-row">
-        <div class="story-label">Setting</div>
-        <div class="story-text">In a crumbling lab on the outskirts of a neon-lit megacity, where nature’s last breath mingles with the hum of dying machinery, Mira is haunted by memories of the lush world that once was.</div>
-      </div>
-      <div class="story-row conflict">
-        <div class="story-label">Conflict</div>
-        <div class="story-text">Mira's ambition to save humanity collides with the Council's greed, as they will stop at nothing to contain her innovations, leaving Mira with a choice: sacrifice her dreams or watch the world spiral further into chaos.</div>
-      </div>
+      <div class="card-prompt">In the small village of San Viento, the sun had not set for three years, and the townsfolk had begun to plant their seeds in the unyielding brightness. Maria, with her dreams of pastel-colored butterflies, watched as they fluttered around her, sensing the weight of a world that thrived on the extraordinary while harboring its darkest secrets.</div>
+      <div class="card-opening">&ldquo;Butterflies had taken over the village, and nobody seemed to mind but Maria.&rdquo;</div>
     </div>
   </div>
     <div class="footer">
