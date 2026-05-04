@@ -11,6 +11,8 @@ import yaml
 from .render import render_email
 from .mailer import send
 
+WILDCARD_KEY = "__wildcard__"
+
 
 def _load_config(config_path: str | None) -> dict:
     """Load config from path, SPARK_CONFIG env var, or bundled default."""
@@ -41,6 +43,33 @@ def _build_genres(config: dict) -> dict:
     return genres
 
 
+def _collect_all_influences(config: dict) -> list[str]:
+    """Collect every named influence across writer profile and all genres."""
+    influences = []
+    influences.extend(config.get("writer_profile", {}).get("influences", []))
+    for g in config.get("genres", {}).values():
+        influences.extend(g.get("influences", []))
+        influences.extend(g.get("screen_influences", []))
+    return influences
+
+
+def _build_wildcard(config: dict, genres: dict, voices: dict) -> dict:
+    """Pick two random genres, one voice, one influence and return wildcard metadata."""
+    genre_keys = random.sample(list(genres.keys()), 2)
+    g1, g2 = genres[genre_keys[0]], genres[genre_keys[1]]
+    voice_name = random.choice(list(voices.keys()))
+    influence = random.choice(_collect_all_influences(config))
+    return {
+        "genre_keys": genre_keys,
+        "genre_labels": [g1["label"], g2["label"]],
+        "genre_icons": [g1["icon"], g2["icon"]],
+        "genre_prefs": [g1["preferences"], g2["preferences"]],
+        "voice_name": voice_name,
+        "voice_instruction": voices[voice_name],
+        "influence": influence,
+    }
+
+
 def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
     """Return {genre_key: voice_instruction}. 'random' assigns each voice at most once per run."""
     if voice == "random":
@@ -48,7 +77,6 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
         if len(genres) <= len(voice_names):
             chosen = random.sample(voice_names, len(genres))
         else:
-            # More genres than voices — shuffle and tile, still no back-to-back repeats
             chosen = []
             while len(chosen) < len(genres):
                 chunk = voice_names[:]
@@ -76,11 +104,13 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
                    "or 'random' (default)")
 @click.option("--beats/--no-beats", default=True,
               help="Generate 6-7 plot beats per prompt (shown as expandable section in HTML)")
+@click.option("--wildcard/--no-wildcard", default=True,
+              help="Generate a genre-mashup wild card prompt at the top (default: on)")
 @click.option("--print-html", is_flag=True, default=False,
               help="Print the rendered HTML to stdout instead of sending")
 @click.option("--output", "-o", type=click.Path(), default=None,
               help="Write HTML to a file (e.g. docs/index.html)")
-def cli(config_path, email, genre, model, voice, beats, print_html, output):
+def cli(config_path, email, genre, model, voice, beats, wildcard, print_html, output):
     """Generate daily writing sparks — one prompt per genre — via GitHub Models.
 
     Requires GITHUB_TOKEN in the environment. To email, also requires
@@ -92,8 +122,8 @@ def cli(config_path, email, genre, model, voice, beats, print_html, output):
     Examples:\n
       daily-spark\n
       daily-spark --voice trailer\n
-      daily-spark --voice random\n
       daily-spark --beats\n
+      daily-spark --no-wildcard\n
       daily-spark --genre sf --voice campfire\n
       daily-spark --config ~/my-spark.yaml
     """
@@ -107,6 +137,7 @@ def cli(config_path, email, genre, model, voice, beats, print_html, output):
             click.echo(f"Unknown genre '{genre}'. Available: {', '.join(all_genres)}", err=True)
             sys.exit(1)
         genres = {genre: all_genres[genre]}
+        wildcard = False
     else:
         genres = all_genres
 
@@ -114,18 +145,24 @@ def cli(config_path, email, genre, model, voice, beats, print_html, output):
     voice_name_map = {v: n for n, v in voices.items()}
     assigned_voice_names = {k: voice_name_map.get(voice_map[k], voice) for k in genres}
 
+    wc_meta = _build_wildcard(config, all_genres, voices) if wildcard else None
+
     click.echo(f"  Generating {len(genres)} prompt(s) via GitHub Models ({model})...\n", err=True)
 
-    result = _generate_prompts(genres, model, writer_profile, voice_map, include_beats=beats)
+    result = _generate_prompts(
+        genres, model, writer_profile, voice_map,
+        include_beats=beats, wildcard=wc_meta,
+    )
 
-    prompts = {k: v["prompt"] for k, v in result.items()}
-    beats_map = {k: v.get("beats", []) for k, v in result.items()} if beats else {}
+    prompts = {k: v["prompt"] for k, v in result.items() if k != WILDCARD_KEY}
+    beats_map = {k: v.get("beats", []) for k, v in result.items() if k != WILDCARD_KEY} if beats else {}
+    wc_result = result.get(WILDCARD_KEY)
 
     if not prompts:
         click.echo("No prompts generated. Check your GITHUB_TOKEN.", err=True)
         sys.exit(1)
 
-    html = render_email(prompts, genres, assigned_voice_names, beats_map)
+    html = render_email(prompts, genres, assigned_voice_names, beats_map, wc_meta, wc_result)
 
     if print_html:
         click.echo(html)
@@ -136,6 +173,18 @@ def cli(config_path, email, genre, model, voice, beats, print_html, output):
         Path(output).write_text(html, encoding="utf-8")
         click.echo(f"  Written to {output}", err=True)
         return
+
+    # Terminal output — wildcard first
+    if wc_meta and wc_result:
+        labels = " × ".join(wc_meta["genre_labels"])
+        icons = " ".join(wc_meta["genre_icons"])
+        click.echo(f"  ⚡  WILD CARD  {icons}  {labels}  [{wc_meta['voice_name']}]")
+        click.echo(f"  via: {wc_meta['influence']}")
+        click.echo(f"  {wc_result['prompt']}")
+        if beats and wc_result.get("beats"):
+            for i, beat in enumerate(wc_result["beats"], 1):
+                click.echo(f"    {i}. {beat}")
+        click.echo("")
 
     for key, p in prompts.items():
         g = genres[key]
@@ -159,6 +208,7 @@ def _generate_prompts(
     writer_profile: dict | None = None,
     voice_map: dict[str, str] | None = None,
     include_beats: bool = False,
+    wildcard: dict | None = None,
 ) -> dict[str, dict]:
     """Call GitHub Models and return {genre_key: {prompt, beats}} dicts."""
     client = _github_client()
@@ -168,6 +218,20 @@ def _generate_prompts(
         voice_instruction = (voice_map or {}).get(key, "")
         voice_note = f" Voice style: {voice_instruction}" if voice_instruction else ""
         genre_lines.append(f'- "{key}": {g["label"]} — {g["preferences"]}{voice_note}')
+
+    if wildcard:
+        g1_label, g2_label = wildcard["genre_labels"]
+        g1_prefs, g2_prefs = wildcard["genre_prefs"]
+        influence = wildcard["influence"]
+        wc_voice = wildcard["voice_instruction"]
+        genre_lines.append(
+            f'- "{WILDCARD_KEY}": WILD CARD — Mash together {g1_label} and {g2_label}. '
+            f'{g1_label} preferences: {g1_prefs} {g2_label} preferences: {g2_prefs} '
+            f'Channel the specific influence of: {influence}. '
+            f'Voice style: {wc_voice} '
+            f'Make this feel genuinely surprising — the two genres should collide, not just coexist.'
+        )
+
     genre_list = "\n".join(genre_lines)
 
     profile_block = ""
@@ -182,25 +246,26 @@ def _generate_prompts(
         if parts:
             profile_block = "\n\n" + " ".join(parts)
 
+    all_keys = list(genres.keys()) + ([WILDCARD_KEY] if wildcard else [])
+
     if include_beats:
         response_shape = (
             "{\n"
             + ",\n".join(
                 f'  "{k}": {{"prompt": "prompt text here", "beats": ["beat 1", "beat 2", "beat 3", "beat 4", "beat 5", "beat 6"]}}'
-                for k in genres
+                for k in all_keys
             )
             + "\n}"
         )
         beats_instruction = (
-            "For each genre also provide 6-7 high-level plot beats — the skeleton of a story "
-            "that could grow from the prompt. Beats should be one punchy sentence each, "
-            "specific enough to be useful but loose enough to leave room. "
-            "Label them only by number, no headers.\n\n"
+            "For each entry also provide 6-7 high-level plot beats — the skeleton of a story "
+            "that could grow from the prompt. Beats should be one punchy sentence each. "
+            "For the WILD CARD, the beats should honour both genres equally.\n\n"
         )
     else:
         response_shape = (
             "{\n"
-            + ",\n".join(f'  "{k}": {{"prompt": "prompt text here", "beats": []}}' for k in genres)
+            + ",\n".join(f'  "{k}": {{"prompt": "prompt text here", "beats": []}}' for k in all_keys)
             + "\n}"
         )
         beats_instruction = ""
@@ -211,10 +276,10 @@ def _generate_prompts(
         "Each prompt should place a character in a specific moment of tension or discovery "
         "with a vivid setting detail, leaving open space for the writer to go anywhere. "
         "2-3 sentences max. No generic advice. No 'write a story about'. Just the spark. "
-        "Apply the voice style instruction for each genre exactly as described.\n\n"
+        "Apply the voice style instruction for each entry exactly as described.\n\n"
         f"{beats_instruction}"
         f"{profile_block}\n\n"
-        f"Generate one prompt for each of these genres:\n{genre_list}\n\n"
+        f"Generate one prompt for each of these entries:\n{genre_list}\n\n"
         "Respond with JSON only — no explanation, no markdown:\n"
         f"{response_shape}"
     )
@@ -224,7 +289,7 @@ def _generate_prompts(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
-            max_tokens=1200 if include_beats else 800,
+            max_tokens=1400 if include_beats else 900,
         )
         raw = response.choices[0].message.content.strip()
         if raw.startswith("```"):

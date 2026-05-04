@@ -2,7 +2,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from writingtools.spark import cli, _generate_prompts, _load_config, _build_genres, _assign_voices
+from writingtools.spark import cli, _generate_prompts, _load_config, _build_genres, _assign_voices, _build_wildcard, _collect_all_influences, WILDCARD_KEY
 from writingtools.render import render_email
 from click.testing import CliRunner
 
@@ -196,10 +196,46 @@ def test_render_email_shows_vanilla_voice():
     assert "vanilla" in html
 
 
+def test_render_email_shows_wildcard():
+    genres = _build_genres(SAMPLE_CONFIG)
+    wc_meta = {
+        "genre_keys": ["sf", "fantasy"],
+        "genre_labels": ["Science Fiction", "Fantasy"],
+        "genre_icons": ["🚀", "⚔️"],
+        "genre_prefs": ["prefs a", "prefs b"],
+        "voice_name": "campfire",
+        "voice_instruction": "Slow, oral.",
+        "influence": "Ursula K. Le Guin (depth)",
+    }
+    wc_result = {"prompt": "A wildcard prompt here.", "beats": ["Beat one.", "Beat two."]}
+    html = render_email(SAMPLE_PROMPTS, genres, wc_meta=wc_meta, wc_result=wc_result)
+    assert "Wild Card" in html or "wildcard" in html
+    assert "Science Fiction" in html
+    assert "Fantasy" in html
+    assert "Le Guin" in html
+    assert "wildcard prompt" in html
+    assert "campfire" in html
+
+
+def test_collect_all_influences():
+    influences = _collect_all_influences(SAMPLE_CONFIG)
+    assert any("Influence A" in i for i in influences)
+    assert len(influences) > 0
+
+
+def test_build_wildcard_picks_two_genres():
+    genres = _build_genres(SAMPLE_CONFIG)
+    wc = _build_wildcard(SAMPLE_CONFIG, genres, SAMPLE_VOICES)
+    assert len(wc["genre_keys"]) == 2
+    assert wc["genre_keys"][0] != wc["genre_keys"][1]
+    assert wc["voice_name"] in SAMPLE_VOICES
+    assert len(wc["influence"]) > 0
+
+
 def test_render_email_shows_beats():
     genres = _build_genres(SAMPLE_CONFIG)
     html = render_email(SAMPLE_PROMPTS, genres, beats_map=SAMPLE_BEATS)
-    assert "Plot beats" in html
+    assert "<summary>Plot beats</summary>" in html
     assert "navigator" in html
     assert SAMPLE_BEATS["sf"][0] in html
 
@@ -207,7 +243,7 @@ def test_render_email_shows_beats():
 def test_render_email_no_beats_section_when_empty():
     genres = _build_genres(SAMPLE_CONFIG)
     html = render_email(SAMPLE_PROMPTS, genres, beats_map={})
-    assert "Plot beats" not in html
+    assert "<summary>Plot beats</summary>" not in html
 
 
 # ── generation tests ──────────────────────────────────────────────────────────

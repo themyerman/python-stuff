@@ -1,4 +1,4 @@
-"""Render writing prompts as a beautiful HTML email."""
+"""Render writing prompts as a beautiful HTML page."""
 from datetime import date
 
 
@@ -34,6 +34,71 @@ body {
   color: #555;
   font-family: system-ui, sans-serif;
 }
+
+/* ── Wild Card ───────────────────────────────────────────────────────── */
+.wildcard {
+  margin-bottom: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #3a2a5a;
+  box-shadow: 0 0 32px rgba(120, 60, 220, 0.15);
+}
+.wildcard-banner {
+  background: linear-gradient(135deg, #1a0a3a 0%, #0a1a3a 100%);
+  padding: 8px 16px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #9966ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wildcard-banner .wc-spacer { flex: 1; }
+.wildcard-banner .wc-voice {
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: #6644aa;
+}
+.wildcard-header {
+  background: linear-gradient(135deg, #120820 0%, #080f1a 100%);
+  padding: 16px 20px 14px;
+  border-top: 1px solid #2a1a4a;
+  border-bottom: 1px solid #1a1a2a;
+}
+.wildcard-genres {
+  font-family: system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ccaaff;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+.wildcard-influence {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: #6644aa;
+  font-style: italic;
+}
+.wildcard-body {
+  background: #0d0818;
+  padding: 22px 20px 24px;
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: #ddd8ff;
+}
+.wildcard details.beats {
+  background: #0a0614;
+  border-top: 1px solid #2a1a4a;
+}
+.wildcard details.beats summary { color: #4a3a6a; }
+.wildcard details.beats summary:hover { color: #7755bb; }
+.wildcard details.beats ol { color: #4a3a6a; }
+
+/* ── Genre cards ─────────────────────────────────────────────────────── */
 .card {
   margin-bottom: 24px;
   border-radius: 6px;
@@ -59,6 +124,8 @@ body {
   line-height: 1.75;
   color: #ddd;
 }
+
+/* ── Plot beats ──────────────────────────────────────────────────────── */
 details.beats {
   background: #111;
   border-top: 1px solid #222;
@@ -76,13 +143,8 @@ details.beats summary {
   list-style: none;
 }
 details.beats summary::-webkit-details-marker { display: none; }
-details.beats summary::after {
-  content: " ▾";
-  font-size: 0.65rem;
-}
-details.beats[open] summary::after {
-  content: " ▴";
-}
+details.beats summary::after { content: " ▾"; font-size: 0.65rem; }
+details.beats[open] summary::after { content: " ▴"; }
 details.beats summary:hover { color: #888; }
 details.beats ol {
   padding: 4px 20px 18px 36px;
@@ -93,6 +155,8 @@ details.beats ol {
 }
 details.beats ol li { margin-bottom: 4px; }
 details.beats ol li:last-child { margin-bottom: 0; }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
 .footer {
   margin-top: 36px;
   padding-top: 20px;
@@ -106,13 +170,49 @@ details.beats ol li:last-child { margin-bottom: 0; }
 """
 
 
+def _beats_html(beats: list) -> str:
+    if not beats:
+        return ""
+    items = "\n".join(f"    <li>{b}</li>" for b in beats)
+    return f"""
+  <details class="beats">
+    <summary>Plot beats</summary>
+    <ol>
+{items}
+    </ol>
+  </details>"""
+
+
 def render_email(
     prompts: dict[str, str],
     genres: dict,
     voice_names: dict | None = None,
     beats_map: dict | None = None,
+    wc_meta: dict | None = None,
+    wc_result: dict | None = None,
 ) -> str:
     today = date.today().strftime("%A, %B %-d, %Y")
+
+    wildcard_html = ""
+    if wc_meta and wc_result:
+        icons = " ".join(wc_meta["genre_icons"])
+        labels = " &times; ".join(wc_meta["genre_labels"])
+        influence = wc_meta["influence"]
+        vname = wc_meta["voice_name"]
+        prompt_text = wc_result.get("prompt", "")
+        wildcard_html = f"""
+  <div class="wildcard">
+    <div class="wildcard-banner">
+      <span>⚡ Wild Card</span>
+      <span class="wc-spacer"></span>
+      <span class="wc-voice">{vname}</span>
+    </div>
+    <div class="wildcard-header">
+      <div class="wildcard-genres">{icons} &nbsp;{labels}</div>
+      <div class="wildcard-influence">via {influence}</div>
+    </div>
+    <div class="wildcard-body">{prompt_text}</div>{_beats_html(wc_result.get("beats", []))}
+  </div>"""
 
     cards = []
     for key, text in prompts.items():
@@ -120,27 +220,12 @@ def render_email(
         icon = g.get("icon", "✦")
         label = g.get("label", key.title())
         color = g.get("color", "#1a1a1a")
-
         vname = (voice_names or {}).get(key)
         voice_badge = (
             f'<span style="margin-left: auto; font-weight: 400; opacity: 0.6; '
             f'text-transform: none; letter-spacing: 0;">{vname}</span>'
             if vname else ""
         )
-
-        beats = (beats_map or {}).get(key, [])
-        if beats:
-            beat_items = "\n".join(f"    <li>{b}</li>" for b in beats)
-            beats_html = f"""
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-{beat_items}
-    </ol>
-  </details>"""
-        else:
-            beats_html = ""
-
         cards.append(f"""
   <div class="card">
     <div class="card-header" style="background: {color};">
@@ -148,7 +233,7 @@ def render_email(
       <span>{label}</span>
       {voice_badge}
     </div>
-    <div class="card-body">{text}</div>{beats_html}
+    <div class="card-body">{text}</div>{_beats_html((beats_map or {}).get(key, []))}
   </div>""")
 
     cards_html = "\n".join(cards)
@@ -167,6 +252,7 @@ def render_email(
       <h1>✦ Daily Writing Spark</h1>
       <div class="date">{today}</div>
     </div>
+    {wildcard_html}
     {cards_html}
     <div class="footer">
       Generated by creative-tools &middot; GitHub Models &middot; {today}
