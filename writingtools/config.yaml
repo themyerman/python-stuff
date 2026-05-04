@@ -16,7 +16,7 @@ writer_profile:
     - Native storytelling and folktales (land as character, cyclical time, the trickster)
 
 voices:
-  neutral: >
+  vanilla: >
     Write as a crisp, evocative prose prompt — specific situation, vivid detail,
     open space for the writer to go anywhere. No framing device.
   trailer: >

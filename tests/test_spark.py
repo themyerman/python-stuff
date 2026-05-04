@@ -28,7 +28,7 @@ SAMPLE_RESPONSE = {
 }
 
 SAMPLE_VOICES = {
-    "neutral": "Crisp, evocative prose.",
+    "vanilla": "Crisp, evocative prose.",
     "trailer": "In a world where... everything is at stake.",
     "campfire": "Slow, oral, present tense.",
     "pulp": "Lurid, punchy, the city is dangerous.",
@@ -143,10 +143,10 @@ def test_assign_voices_random_no_repeats():
     assert len(set(result.values())) == len(result)
 
 
-def test_assign_voices_falls_back_to_neutral():
+def test_assign_voices_falls_back_to_vanilla():
     genres = _build_genres(SAMPLE_CONFIG)
     result = _assign_voices(genres, "nonexistent", SAMPLE_VOICES)
-    assert all(v == SAMPLE_VOICES["neutral"] for v in result.values())
+    assert all(v == SAMPLE_VOICES["vanilla"] for v in result.values())
 
 
 # ── render tests ──────────────────────────────────────────────────────────────
@@ -189,11 +189,11 @@ def test_render_email_shows_voice_name():
     assert "trailer" in html
 
 
-def test_render_email_hides_neutral_voice():
+def test_render_email_shows_vanilla_voice():
     genres = _build_genres(SAMPLE_CONFIG)
-    voice_names = {k: "neutral" for k in genres}
+    voice_names = {k: "vanilla" for k in genres}
     html = render_email(SAMPLE_PROMPTS, genres, voice_names)
-    assert "neutral" not in html
+    assert "vanilla" in html
 
 
 def test_render_email_shows_beats():

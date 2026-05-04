@@ -44,7 +44,7 @@ def _build_genres(config: dict) -> dict:
 def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
     """Return {genre_key: voice_instruction}. 'random' assigns each voice at most once per run."""
     if voice == "random":
-        voice_names = [k for k in voices.keys() if k != "neutral"]
+        voice_names = list(voices.keys())
         if len(genres) <= len(voice_names):
             chosen = random.sample(voice_names, len(genres))
         else:
@@ -56,7 +56,7 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
                 chosen.extend(chunk)
             chosen = chosen[:len(genres)]
         return {key: voices[name] for key, name in zip(genres, chosen)}
-    instruction = voices.get(voice, voices.get("neutral", ""))
+    instruction = voices.get(voice, voices.get("vanilla", ""))
     return {key: instruction for key in genres}
 
 
@@ -70,7 +70,7 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
 @click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
 @click.option("--voice", default="random", show_default=True,
-              help="Voice style: neutral, trailer, bestseller, xfiles, trashy, campfire, "
+              help="Voice style: vanilla, trailer, bestseller, xfiles, trashy, campfire, "
                    "kenburns, pulp, academic, satiric, or 'random' to assign a different voice per genre")
 @click.option("--beats/--no-beats", default=True,
               help="Generate 6-7 plot beats per prompt (shown as expandable section in HTML)")

@@ -125,7 +125,7 @@ def render_email(
         voice_badge = (
             f'<span style="margin-left: auto; font-weight: 400; opacity: 0.6; '
             f'text-transform: none; letter-spacing: 0;">{vname}</span>'
-            if vname and vname != "neutral" else ""
+            if vname else ""
         )
 
         beats = (beats_map or {}).get(key, [])
