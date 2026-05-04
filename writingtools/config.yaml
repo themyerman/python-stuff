@@ -256,3 +256,172 @@ genres:
       - Sneakers (the heist as philosophy, information as power, no more secrets)
       - Three Days of the Condor (anyone could be the enemy)
       - The Bone Collector (the immobile detective, the city as crime scene, the clock)
+
+  horror:
+    label: Horror
+    icon: "🕯️"
+    color: "#1a0a0a"
+    preferences: >
+      Psychological and atmospheric horror. Dread over gore. The monster is often
+      a metaphor but the metaphor has teeth. What we're afraid of says everything
+      about who we are. The best horror leaves something behind in the reader.
+    influences:
+      - Shirley Jackson (the house, the group, the slow unraveling — domestic dread)
+      - Stephen King (ordinary people in extraordinary terror, the body in the road)
+      - Poe (atmosphere as fate, the narrator who cannot be trusted)
+      - Thomas Tryon (quiet suburban horror, the secret hiding in plain sight)
+      - Paul Tremblay (modern literary horror, ambiguity as the real monster)
+    screen_influences:
+      - The Shining (Kubrick — isolation, the unreliable father, the building that breathes)
+      - Hereditary (grief as possession, family as curse)
+      - Get Out (the horror is real and it has a name)
+      - Pan's Labyrinth (the fantasy is the horror, or the horror is the fantasy)
+      - The Witch (language and landscape as dread, the forest is watching)
+
+  historical:
+    label: Historical Fiction
+    icon: "📜"
+    color: "#2a1a0a"
+    preferences: >
+      Historical fiction across any era — ancient, medieval, early modern, colonial.
+      The past as a foreign country with its own logic. Research worn lightly.
+      Characters who don't know how it ends. History as the pressure the story lives under.
+    influences:
+      - Hilary Mantel (interiority in the historical moment, power and its cost)
+      - Bernard Cornwell (visceral, grounded, the common soldier's view)
+      - Mary Renault (ancient Greece, character over event, identity and myth)
+      - Colm Tóibín (quiet, precise, the private life inside the historical record)
+      - Patrick O'Brian (world-building through detail, friendship under pressure)
+    screen_influences:
+      - Gladiator (the empire's machinery, personal vengeance, honour as burden)
+      - Braveheart (land and freedom, the cost of leading, legend-making)
+      - The Last of the Mohicans (the frontier, loyalty, the world ending in real time)
+      - Master and Commander (craft and command, the ship as world)
+      - Lawrence of Arabia (colonialism's contradictions, the man who became myth)
+
+  crime:
+    label: Crime
+    icon: "💰"
+    color: "#0a0a1a"
+    preferences: >
+      Crime fiction from the criminal's side — the heist, the job, the score, the
+      aftermath. The planning is the pleasure. Something always goes wrong.
+      Moral ambiguity without apology. Competence porn with consequences.
+    influences:
+      - Elmore Leonard (dialogue as character, criminals with codes, violence that's earned)
+      - Donald Westlake / Richard Stark (the professional, the plan, the thing that breaks it)
+      - George Pelecanos (Washington DC, working-class, the city's long memory)
+      - Patricia Highsmith (the criminal as protagonist, guilt as pleasure)
+      - James Ellroy (the system is the crime, everyone is complicit)
+    screen_influences:
+      - Heat (the professional mirror, the line between cop and criminal)
+      - Rififi (the heist in silence, perfection and its cost)
+      - No Country for Old Men (the job that follows you home)
+      - Fargo (Coen Brothers — the ordinary world and the violence that enters it)
+      - The Usual Suspects (the story is the con)
+      - Out of Sight (Elmore Leonard — charm, stakes, the job as seduction)
+
+  adventure:
+    label: Adventure
+    icon: "⚡"
+    color: "#1a2a0a"
+    preferences: >
+      Adventure fiction — the quest, the crew, impossible odds, the open world.
+      Wit and heart alongside the danger. Found family under pressure. The journey
+      matters as much as the destination. Goldman energy: the hero almost doesn't make it.
+    influences:
+      - William Goldman (structure, wit, the hero's impossible situation)
+      - Patrick O'Brian (the partnership, the long voyage, expertise under fire)
+      - Alexandre Dumas (the ensemble, loyalty tested, swashbuckling with stakes)
+      - Robert Louis Stevenson (treasure, betrayal, the boy who grows up fast)
+      - Alistair MacLean (tense, plot-driven, men against impossible odds)
+    screen_influences:
+      - The Princess Bride (Goldman — wit, heart, the fairy tale that earns it)
+      - Raiders of the Lost Ark (competence and chaos, the world as playground)
+      - The Magnificent Seven (the crew assembled, the cause worth dying for)
+      - Butch Cassidy and the Sundance Kid (charm under pressure, the end of an era)
+      - Master and Commander (the mission, the friendship, the cost)
+
+  satire:
+    label: Satire / Fable
+    icon: "🎭"
+    color: "#2a2a0a"
+    preferences: >
+      Satire and fable — Voltaire, Vonnegut, Heller, Pratchett. The world held up
+      to a funhouse mirror that turns out to be accurate. The absurd premise that
+      is actually the real one. Power, folly, and the people who see through both.
+      Comedy as the sharpest critique.
+    influences:
+      - Voltaire (Candide — the best of all possible worlds, clearly not)
+      - Kurt Vonnegut (so it goes, the absurdity of the species, love anyway)
+      - Joseph Heller (the system is the joke and the joke is lethal)
+      - Terry Pratchett (the footnote is the point, humanity is the punchline and the hero)
+      - George Orwell (the fable with the iron fist inside)
+    screen_influences:
+      - Dr. Strangelove (the war room, the logic of madness, nobody in charge)
+      - Idiocracy (the future we're building, played straight)
+      - MASH (the comedy that is the only response to the horror)
+      - Being There (the blank slate the world writes its wishes onto)
+
+  literary:
+    label: Literary Fiction
+    icon: "✒️"
+    color: "#1a1a1a"
+    preferences: >
+      Literary fiction — the quiet character study, the moment that contains everything.
+      No plot armor, no genre machinery. Just a person in a situation that reveals them.
+      Camus, Chaucer, the weight of an ordinary afternoon. The story earns its ending
+      by being true to something first.
+    influences:
+      - Albert Camus (the stranger in the world, the absurd, defiance as dignity)
+      - Geoffrey Chaucer (the human comedy, every pilgrim distinct and flawed)
+      - Colm Tóibín (restraint, longing, the sentence that holds everything back)
+      - Marilynne Robinson (grace in the ordinary, the interior life as the only life)
+      - James Baldwin (witness, love, the cost of clarity)
+    screen_influences:
+      - Ordinary People (the family after the rupture, what can't be said)
+      - Lost in Translation (disconnection, the thing that almost happens)
+      - Nomadland (the life on the margins, quiet and real)
+      - Paterson (the poem in the everyday, beauty without consequence)
+
+  magic_realism_genre:
+    label: Magic Realism
+    icon: "🌀"
+    color: "#1a0a2a"
+    preferences: >
+      Magic realism as a full genre — García Márquez, Isabel Allende, the extraordinary
+      embedded in the everyday without explanation or apology. The dead walk,
+      the rain lasts years, the butterflies follow a man to his grave. The miracle
+      is local, specific, and inconvenient. The village always knew.
+    influences:
+      - Gabriel García Márquez (one hundred years, the founding myth, solitude as fate)
+      - Isabel Allende (the house of spirits, women's memory, history as haunting)
+      - Laura Esquivel (desire and the body, food as magic, the domestic as cosmic)
+      - Salman Rushdie (midnight's children, history cracking open, the unreliable narrator of nations)
+      - Jorge Luis Borges (the library, the labyrinth, the infinite in the particular)
+    screen_influences:
+      - Like Water for Chocolate (the recipe, the emotion, the body as the world)
+      - Pan's Labyrinth (the real and the magic at equal weight)
+      - Big Fish (the story that is truer than the truth)
+      - Amelie (the world as a place of secret connections)
+
+  revenge:
+    label: Revenge Tale
+    icon: "🗡️"
+    color: "#2a0a0a"
+    preferences: >
+      The revenge tale — one of the oldest stories. The wound, the waiting, the reckoning.
+      What the pursuit costs the pursuer. Whether justice and revenge are the same thing
+      or have never been. The ending is never as clean as the fantasy of it.
+    influences:
+      - Alexandre Dumas (The Count of Monte Cristo — the long game, patience as weapon)
+      - Cormac McCarthy (the cost paid in full, no redemption required)
+      - Homer (the Odyssey — the journey home is the revenge, identity reclaimed)
+      - Shakespeare (Hamlet, Titus — the rot spreads, the avenger is consumed)
+    screen_influences:
+      - Oldboy (the revenge that destroys the avenger, the truth worse than the wound)
+      - True Grit (the girl who will not stop, justice on her own terms)
+      - Kill Bill (Tarantino — the list, the craft, the cost of completion)
+      - Sisu (one man, they should have left him alone)
+      - The Revenant (the land as witness, survival as revenge)
+      - Gladiator (are you not entertained — vengeance as the last remaining purpose)
