@@ -2,36 +2,26 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from writingtools.spark import cli, _generate_prompts, _load_config, _build_genres, _assign_voices, _build_wildcard, _collect_all_influences, WILDCARD_KEY
+from writingtools.spark import (
+    cli, _generate_prompts, _load_config, _build_genres,
+    _assign_voices, _build_wildcard, _collect_all_influences, WILDCARD_KEY,
+)
 from writingtools.render import render_email
 from click.testing import CliRunner
 
 
 SAMPLE_PROMPTS = {
-    "sf":      "The colony ship's navigator discovers the star charts were falsified before departure — and the planet they've been en route to for sixty years doesn't exist.",
-    "fantasy": "The executioner's blade has broken on the necks of three supposedly guilty men this week. The fourth condemned is a child.",
-    "western": "The treaty surveyor arrives in a town that doesn't appear on any federal map, speaking a language the locals recognize from their grandparents.",
-    "mystery": "The victim was found in a locked library with a lit cigar, a half-eaten meal, and every clock in the room stopped at different times.",
-}
-
-SAMPLE_BEATS = {
-    "sf":      ["The navigator discovers the falsified charts.", "She confronts the mission commander.", "The crew fractures over whether to continue.", "They find a different planet — inhabited.", "First contact goes wrong.", "The navigator has to choose sides."],
-    "fantasy": ["The executioner reports the blade failure.", "A prisoner confesses the blades are cursed.", "The child is brought forward.", "The executioner refuses.", "The city erupts.", "Someone else does the deed."],
-    "western": ["The surveyor arrives alone.", "A local recognizes the language.", "The town's history is revealed.", "The federal maps are burned.", "The surveyor is given a choice.", "She signs the wrong document on purpose."],
-    "mystery": ["The detective is called to the library.", "Each clock stopped at a different time.", "A second body is found outside.", "The locked room mechanism is discovered.", "The victim was the killer.", "The detective buries the truth."],
-}
-
-# API response shape: {genre: {prompt, beats}}
-SAMPLE_RESPONSE = {
-    k: {"prompt": SAMPLE_PROMPTS[k], "beats": SAMPLE_BEATS[k]}
-    for k in SAMPLE_PROMPTS
+    "sf":      "The colony ship's navigator discovers the star charts were falsified before departure.",
+    "fantasy": "The executioner's blade has broken on the necks of three supposedly guilty men this week.",
+    "western": "The treaty surveyor arrives in a town that doesn't appear on any federal map.",
+    "mystery": "The victim was found in a locked library with every clock stopped at different times.",
 }
 
 SAMPLE_VOICES = {
     "vanilla": "Crisp, evocative prose.",
     "trailer": "In a world where... everything is at stake.",
     "campfire": "Slow, oral, present tense.",
-    "pulp": "Lurid, punchy, the city is dangerous.",
+    "pulp":    "Lurid, punchy, the city is dangerous.",
     "satiric": "Wit as a weapon, the absurd used to expose the serious.",
 }
 
@@ -43,43 +33,33 @@ SAMPLE_CONFIG = {
     },
     "genres": {
         "sf": {
-            "label": "Science Fiction",
-            "icon": "🚀",
-            "color": "#1a3a5c",
+            "label": "Science Fiction", "icon": "🚀", "color": "#1a3a5c",
             "preferences": "Space opera.",
             "influences": ["Ursula K. Le Guin (depth)", "Brian Daley (energy)"],
         },
         "fantasy": {
-            "label": "Fantasy",
-            "icon": "⚔️",
-            "color": "#2d1b4e",
+            "label": "Fantasy", "icon": "⚔️", "color": "#2d1b4e",
             "preferences": "Grimdark.",
             "influences": ["Terry Pratchett (humour)", "Joe Abercrombie (realism)"],
         },
         "western": {
-            "label": "Western",
-            "icon": "🌵",
-            "color": "#4a2c0a",
-            "preferences": "Neo-western.",
-            "influences": [],
+            "label": "Western", "icon": "🌵", "color": "#4a2c0a",
+            "preferences": "Neo-western.", "influences": [],
         },
         "mystery": {
-            "label": "Mystery",
-            "icon": "🕵️",
-            "color": "#1a2a1a",
-            "preferences": "Neo-noir.",
-            "influences": [],
+            "label": "Mystery", "icon": "🕵️", "color": "#1a2a1a",
+            "preferences": "Neo-noir.", "influences": [],
         },
     },
 }
 
 
-def _mock_client(response=None):
-    if response is None:
-        response = SAMPLE_RESPONSE
+def _mock_client(prompts=None):
+    if prompts is None:
+        prompts = SAMPLE_PROMPTS
     mock = MagicMock()
     mock.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content=json.dumps(response)))]
+        choices=[MagicMock(message=MagicMock(content=json.dumps(prompts)))]
     )
     return mock
 
@@ -117,14 +97,10 @@ def test_build_genres_merges_influences():
 
 
 def test_build_genres_no_influences():
-    config = {
-        "genres": {
-            "mystery": {
-                "label": "Mystery", "icon": "🕵️", "color": "#000",
-                "preferences": "Neo-noir.", "influences": [],
-            }
-        }
-    }
+    config = {"genres": {"mystery": {
+        "label": "Mystery", "icon": "🕵️", "color": "#000",
+        "preferences": "Neo-noir.", "influences": [],
+    }}}
     genres = _build_genres(config)
     assert "Tonal influences" not in genres["mystery"]["preferences"]
 
@@ -147,6 +123,23 @@ def test_assign_voices_falls_back_to_vanilla():
     genres = _build_genres(SAMPLE_CONFIG)
     result = _assign_voices(genres, "nonexistent", SAMPLE_VOICES)
     assert all(v == SAMPLE_VOICES["vanilla"] for v in result.values())
+
+
+# ── wildcard ──────────────────────────────────────────────────────────────────
+
+def test_collect_all_influences():
+    influences = _collect_all_influences(SAMPLE_CONFIG)
+    assert any("Influence A" in i for i in influences)
+    assert len(influences) > 0
+
+
+def test_build_wildcard_picks_two_genres():
+    genres = _build_genres(SAMPLE_CONFIG)
+    wc = _build_wildcard(SAMPLE_CONFIG, genres, SAMPLE_VOICES)
+    assert len(wc["genre_keys"]) == 2
+    assert wc["genre_keys"][0] != wc["genre_keys"][1]
+    assert wc["voice_name"] in SAMPLE_VOICES
+    assert len(wc["influence"]) > 0
 
 
 # ── render tests ──────────────────────────────────────────────────────────────
@@ -184,15 +177,13 @@ def test_render_email_single_genre():
 
 def test_render_email_shows_voice_name():
     genres = _build_genres(SAMPLE_CONFIG)
-    voice_names = {k: "trailer" for k in genres}
-    html = render_email(SAMPLE_PROMPTS, genres, voice_names)
+    html = render_email(SAMPLE_PROMPTS, genres, {k: "trailer" for k in genres})
     assert "trailer" in html
 
 
 def test_render_email_shows_vanilla_voice():
     genres = _build_genres(SAMPLE_CONFIG)
-    voice_names = {k: "vanilla" for k in genres}
-    html = render_email(SAMPLE_PROMPTS, genres, voice_names)
+    html = render_email(SAMPLE_PROMPTS, genres, {k: "vanilla" for k in genres})
     assert "vanilla" in html
 
 
@@ -207,43 +198,13 @@ def test_render_email_shows_wildcard():
         "voice_instruction": "Slow, oral.",
         "influence": "Ursula K. Le Guin (depth)",
     }
-    wc_result = {"prompt": "A wildcard prompt here.", "beats": ["Beat one.", "Beat two."]}
-    html = render_email(SAMPLE_PROMPTS, genres, wc_meta=wc_meta, wc_result=wc_result)
-    assert "Wild Card" in html or "wildcard" in html
+    html = render_email(SAMPLE_PROMPTS, genres, wc_meta=wc_meta, wc_prompt="A wildcard prompt.")
+    assert "wildcard" in html
     assert "Science Fiction" in html
     assert "Fantasy" in html
     assert "Le Guin" in html
     assert "wildcard prompt" in html
     assert "campfire" in html
-
-
-def test_collect_all_influences():
-    influences = _collect_all_influences(SAMPLE_CONFIG)
-    assert any("Influence A" in i for i in influences)
-    assert len(influences) > 0
-
-
-def test_build_wildcard_picks_two_genres():
-    genres = _build_genres(SAMPLE_CONFIG)
-    wc = _build_wildcard(SAMPLE_CONFIG, genres, SAMPLE_VOICES)
-    assert len(wc["genre_keys"]) == 2
-    assert wc["genre_keys"][0] != wc["genre_keys"][1]
-    assert wc["voice_name"] in SAMPLE_VOICES
-    assert len(wc["influence"]) > 0
-
-
-def test_render_email_shows_beats():
-    genres = _build_genres(SAMPLE_CONFIG)
-    html = render_email(SAMPLE_PROMPTS, genres, beats_map=SAMPLE_BEATS)
-    assert "<summary>Plot beats</summary>" in html
-    assert "navigator" in html
-    assert SAMPLE_BEATS["sf"][0] in html
-
-
-def test_render_email_no_beats_section_when_empty():
-    genres = _build_genres(SAMPLE_CONFIG)
-    html = render_email(SAMPLE_PROMPTS, genres, beats_map={})
-    assert "<summary>Plot beats</summary>" not in html
 
 
 # ── generation tests ──────────────────────────────────────────────────────────
@@ -252,18 +213,8 @@ def test_generate_prompts_returns_all_genres():
     genres = _build_genres(SAMPLE_CONFIG)
     with patch("writingtools.spark._github_client", return_value=_mock_client()):
         result = _generate_prompts(genres, "gpt-4o-mini", SAMPLE_CONFIG["writer_profile"])
-
     assert set(result.keys()) == {"sf", "fantasy", "western", "mystery"}
-    assert "navigator" in result["sf"]["prompt"]
-
-
-def test_generate_prompts_returns_beats_when_requested():
-    genres = _build_genres(SAMPLE_CONFIG)
-    with patch("writingtools.spark._github_client", return_value=_mock_client()):
-        result = _generate_prompts(genres, "gpt-4o-mini", include_beats=True)
-
-    assert isinstance(result["sf"]["beats"], list)
-    assert len(result["sf"]["beats"]) > 0
+    assert "navigator" in result["sf"]
 
 
 def test_generate_prompts_writer_profile_in_prompt():
@@ -271,14 +222,13 @@ def test_generate_prompts_writer_profile_in_prompt():
     mock_client = _mock_client()
     with patch("writingtools.spark._github_client", return_value=mock_client):
         _generate_prompts(genres, "gpt-4o-mini", SAMPLE_CONFIG["writer_profile"])
-    call_args = mock_client.chat.completions.create.call_args
-    prompt_text = call_args[1]["messages"][0]["content"]
+    prompt_text = mock_client.chat.completions.create.call_args[1]["messages"][0]["content"]
     assert "Test author background" in prompt_text
     assert "Influence A" in prompt_text
 
 
 def test_generate_prompts_handles_markdown_fence():
-    fenced = "```json\n" + json.dumps(SAMPLE_RESPONSE) + "\n```"
+    fenced = "```json\n" + json.dumps(SAMPLE_PROMPTS) + "\n```"
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content=fenced))]
@@ -286,8 +236,7 @@ def test_generate_prompts_handles_markdown_fence():
     genres = _build_genres(SAMPLE_CONFIG)
     with patch("writingtools.spark._github_client", return_value=mock_client):
         result = _generate_prompts(genres, "gpt-4o-mini")
-
-    assert "navigator" in result["sf"]["prompt"]
+    assert "navigator" in result["sf"]
 
 
 def test_generate_prompts_returns_empty_on_error():
@@ -296,7 +245,6 @@ def test_generate_prompts_returns_empty_on_error():
     genres = _build_genres(SAMPLE_CONFIG)
     with patch("writingtools.spark._github_client", return_value=mock_client):
         result = _generate_prompts(genres, "gpt-4o-mini")
-
     assert result == {}
 
 
@@ -306,36 +254,16 @@ def test_cli_prints_prompts():
     with patch("writingtools.spark._github_client", return_value=_mock_client()), \
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, [])
-
     assert result.exit_code == 0, result.output
     assert "navigator" in result.output
     assert "executioner" in result.output
 
 
-def test_cli_prints_beats_by_default():
-    with patch("writingtools.spark._github_client", return_value=_mock_client()), \
-         patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
-        result = CliRunner().invoke(cli, [])
-
-    assert result.exit_code == 0, result.output
-    assert SAMPLE_BEATS["sf"][0] in result.output
-
-
-def test_cli_no_beats_flag():
-    with patch("writingtools.spark._github_client", return_value=_mock_client()), \
-         patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
-        result = CliRunner().invoke(cli, ["--no-beats"])
-
-    assert result.exit_code == 0, result.output
-    assert SAMPLE_BEATS["sf"][0] not in result.output
-
-
 def test_cli_single_genre():
-    sf_only = {"sf": SAMPLE_RESPONSE["sf"]}
+    sf_only = {"sf": SAMPLE_PROMPTS["sf"]}
     with patch("writingtools.spark._github_client", return_value=_mock_client(sf_only)), \
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, ["--genre", "sf"])
-
     assert result.exit_code == 0, result.output
     assert "navigator" in result.output
 
@@ -343,7 +271,6 @@ def test_cli_single_genre():
 def test_cli_unknown_genre_exits():
     with patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, ["--genre", "horror"])
-
     assert result.exit_code != 0
 
 
@@ -351,7 +278,6 @@ def test_cli_print_html():
     with patch("writingtools.spark._github_client", return_value=_mock_client()), \
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, ["--print-html"])
-
     assert result.exit_code == 0, result.output
     assert "<!DOCTYPE html>" in result.output
 
@@ -362,7 +288,6 @@ def test_cli_no_prompts_exits():
     with patch("writingtools.spark._github_client", return_value=mock_client), \
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG):
         result = CliRunner().invoke(cli, [])
-
     assert result.exit_code != 0
 
 
@@ -371,19 +296,15 @@ def test_cli_email_calls_send():
          patch("writingtools.spark._load_config", return_value=SAMPLE_CONFIG), \
          patch("writingtools.spark.send") as mock_send:
         result = CliRunner().invoke(cli, ["--email"])
-
     assert result.exit_code == 0, result.output
     mock_send.assert_called_once()
-    html_arg = mock_send.call_args[0][0]
-    assert "navigator" in html_arg
+    assert "navigator" in mock_send.call_args[0][0]
 
 
 def test_cli_custom_config_file(tmp_path):
     import yaml
     cfg_file = tmp_path / "custom.yaml"
     cfg_file.write_text(yaml.dump(SAMPLE_CONFIG), encoding="utf-8")
-
     with patch("writingtools.spark._github_client", return_value=_mock_client()):
         result = CliRunner().invoke(cli, ["--config", str(cfg_file)])
-
     assert result.exit_code == 0, result.output

@@ -90,13 +90,6 @@ body {
   line-height: 1.8;
   color: #ddd8ff;
 }
-.wildcard details.beats {
-  background: #0a0614;
-  border-top: 1px solid #2a1a4a;
-}
-.wildcard details.beats summary { color: #4a3a6a; }
-.wildcard details.beats summary:hover { color: #7755bb; }
-.wildcard details.beats ol { color: #4a3a6a; }
 
 /* ── Genre cards ─────────────────────────────────────────────────────── */
 .card {
@@ -125,37 +118,6 @@ body {
   color: #ddd;
 }
 
-/* ── Plot beats ──────────────────────────────────────────────────────── */
-details.beats {
-  background: #111;
-  border-top: 1px solid #222;
-}
-details.beats summary {
-  padding: 10px 20px;
-  font-family: system-ui, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #555;
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-}
-details.beats summary::-webkit-details-marker { display: none; }
-details.beats summary::after { content: " ▾"; font-size: 0.65rem; }
-details.beats[open] summary::after { content: " ▴"; }
-details.beats summary:hover { color: #888; }
-details.beats ol {
-  padding: 4px 20px 18px 36px;
-  font-family: system-ui, sans-serif;
-  font-size: 0.82rem;
-  line-height: 1.7;
-  color: #666;
-}
-details.beats ol li { margin-bottom: 4px; }
-details.beats ol li:last-child { margin-bottom: 0; }
-
 /* ── Footer ──────────────────────────────────────────────────────────── */
 .footer {
   margin-top: 36px;
@@ -170,48 +132,31 @@ details.beats ol li:last-child { margin-bottom: 0; }
 """
 
 
-def _beats_html(beats: list) -> str:
-    if not beats:
-        return ""
-    items = "\n".join(f"    <li>{b}</li>" for b in beats)
-    return f"""
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-{items}
-    </ol>
-  </details>"""
-
-
 def render_email(
     prompts: dict[str, str],
     genres: dict,
     voice_names: dict | None = None,
-    beats_map: dict | None = None,
     wc_meta: dict | None = None,
-    wc_result: dict | None = None,
+    wc_prompt: str | None = None,
 ) -> str:
     today = date.today().strftime("%A, %B %-d, %Y")
 
     wildcard_html = ""
-    if wc_meta and wc_result:
+    if wc_meta and wc_prompt:
         icons = " ".join(wc_meta["genre_icons"])
         labels = " &times; ".join(wc_meta["genre_labels"])
-        influence = wc_meta["influence"]
-        vname = wc_meta["voice_name"]
-        prompt_text = wc_result.get("prompt", "")
         wildcard_html = f"""
   <div class="wildcard">
     <div class="wildcard-banner">
       <span>⚡ Wild Card</span>
       <span class="wc-spacer"></span>
-      <span class="wc-voice">{vname}</span>
+      <span class="wc-voice">{wc_meta["voice_name"]}</span>
     </div>
     <div class="wildcard-header">
       <div class="wildcard-genres">{icons} &nbsp;{labels}</div>
-      <div class="wildcard-influence">via {influence}</div>
+      <div class="wildcard-influence">via {wc_meta["influence"]}</div>
     </div>
-    <div class="wildcard-body">{prompt_text}</div>{_beats_html(wc_result.get("beats", []))}
+    <div class="wildcard-body">{wc_prompt}</div>
   </div>"""
 
     cards = []
@@ -233,7 +178,7 @@ def render_email(
       <span>{label}</span>
       {voice_badge}
     </div>
-    <div class="card-body">{text}</div>{_beats_html((beats_map or {}).get(key, []))}
+    <div class="card-body">{text}</div>
   </div>""")
 
     cards_html = "\n".join(cards)
