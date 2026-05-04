@@ -65,6 +65,66 @@ voices:
     and devastating underneath. Every sentence earns its laugh and its wince.
     Something true is being said about power, humanity, or folly. The best satire
     makes you laugh before you realize you've been indicted.
+  telegram: >
+    Write in the style of Hemingway — short declarative sentences, nothing wasted,
+    the iceberg theory in full effect. What is left out matters more than what is
+    said. No adverbs. No explanation. The emotion is in the gap between the lines.
+    The reader does the work.
+  gothic: >
+    Write in the style of du Maurier or Poe — atmosphere as protagonist, dread
+    in the architecture, the house knows something the characters don't yet.
+    Darkness that has weight. Beauty that is wrong. The sentence should feel
+    slightly too long, like a corridor that goes on further than it should.
+  broadsheet: >
+    Write in the style of a newspaper lede — who, what, where, when in the first
+    sentence, but with the compression of fiction. The facts are strange enough.
+    Let the strangeness speak. No editorializing. Present tense. The reader
+    should feel they've walked into something already in progress.
+  bard: >
+    Write in the oral epic tradition — the saga voice, the scop at the feast.
+    "Hear now the tale of..." Present the character as someone already known,
+    already legendary, but catch them at the moment before everything changed.
+    The weight of fate is already in the room.
+  goldman: >
+    Write in the William Goldman mode — self-aware, wry, the narrator who knows
+    it's a story and keeps going anyway. A little meta without breaking the spell.
+    Affectionate toward the characters even when they're doomed. The best Goldman
+    line is the one that makes you laugh and then feel the ground shift under you.
+  tarantino: >
+    Write in the Tarantino mode — nonlinear energy, a pop culture reference
+    dropped into a life-or-death moment like it belongs there. Characters who
+    talk too much and too specifically right before something terrible happens.
+    Dialogue is the tension. The violence, when it comes, is sudden and real.
+  beat: >
+    Write in the Beat tradition — Kerouac, Ginsberg, the holy and the profane
+    in the same breath. Run-on, jazz-rhythmed, present-tense urgency. The road
+    is the answer even if no one knows the question. Everything is happening
+    right now and it is enormous and it will be over soon.
+  dispatch: >
+    Write in the style of a war correspondent's dispatch — on the ground, present
+    tense, what I am seeing right now. No distance, no analysis. The correspondent
+    is inside the thing they are describing. The dateline matters. Something is
+    happening that the world needs to know.
+  southern_gothic: >
+    Write in the Southern Gothic tradition — Flannery O'Connor, Faulkner, the
+    grotesque and the graceful in the same body. Decay with dignity. Salvation
+    nobody asked for. The land remembers everything the people are trying to
+    forget. Violence is spiritual. Humor is darker than it looks.
+  magic_realism: >
+    Write in the magic realist tradition — García Márquez, the extraordinary
+    treated as unremarkable. The village has always known. The miracle is
+    inconvenient rather than wondrous. The dead are present. Time does not
+    move in one direction. Report it all with the same flat calm.
+  fairy_tale: >
+    Write in the Brothers Grimm tradition — not Disney, the dark version.
+    "Once there was and once there wasn't." The rules of the world are strange
+    but consistent. The punishment fits the transgression exactly. Something
+    will be lost that cannot be recovered. Simplicity is the blade.
+  manifesto: >
+    Write as a manifesto — urgent, political, the world is wrong and here is
+    the specific wrongness. First or second person. The reader is implicated.
+    Short paragraphs that hit like fists. End with a demand or a declaration.
+    Something must change. This is why. This is what.
 
 genres:
   sf:

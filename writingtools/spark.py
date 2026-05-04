@@ -70,8 +70,10 @@ def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
 @click.option("--model", default="gpt-4o-mini", show_default=True,
               help="GitHub Models model ID to use")
 @click.option("--voice", default="random", show_default=True,
-              help="Voice style: vanilla, trailer, bestseller, xfiles, trashy, campfire, "
-                   "kenburns, pulp, academic, satiric, or 'random' to assign a different voice per genre")
+              help="Voice style: vanilla, trailer, bestseller, xfiles, trashy, campfire, kenburns, "
+                   "pulp, academic, satiric, telegram, gothic, broadsheet, bard, goldman, tarantino, "
+                   "beat, dispatch, southern_gothic, magic_realism, fairy_tale, manifesto, "
+                   "or 'random' (default)")
 @click.option("--beats/--no-beats", default=True,
               help="Generate 6-7 plot beats per prompt (shown as expandable section in HTML)")
 @click.option("--print-html", is_flag=True, default=False,
