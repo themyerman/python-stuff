@@ -51,21 +51,44 @@ def _collect_all_influences(config: dict) -> list[str]:
     return influences
 
 
-def _build_mashup(config: dict, genres: dict, voices: dict) -> dict:
-    """Pick two random genres, one voice, one influence."""
-    genre_keys = random.sample(list(genres.keys()), 2)
-    g1, g2 = genres[genre_keys[0]], genres[genre_keys[1]]
-    voice_name = random.choice(list(voices.keys()))
-    influence = random.choice(_collect_all_influences(config))
-    return {
-        "genre_keys": genre_keys,
-        "genre_labels": [g1["label"], g2["label"]],
-        "genre_icons": [g1["icon"], g2["icon"]],
-        "genre_prefs": [g1["preferences"], g2["preferences"]],
-        "voice_name": voice_name,
-        "voice_instruction": voices[voice_name],
-        "influence": influence,
-    }
+def _build_mashups(config: dict, genres: dict, voices: dict, count: int) -> list[dict]:
+    """Build N mashups with no repeated genres, voices, or influences across the batch."""
+    all_genre_keys = list(genres.keys())
+    all_voice_names = list(voices.keys())
+    all_influences = _collect_all_influences(config)
+
+    # Need count*2 unique genre slots — tile if the pool is smaller
+    genre_pool = _sample_no_repeat(all_genre_keys, count * 2)
+    voice_pool = _sample_no_repeat(all_voice_names, count)
+    influence_pool = _sample_no_repeat(all_influences, count)
+
+    mashups = []
+    for i in range(count):
+        k1, k2 = genre_pool[i * 2], genre_pool[i * 2 + 1]
+        g1, g2 = genres[k1], genres[k2]
+        vname = voice_pool[i]
+        mashups.append({
+            "genre_keys": [k1, k2],
+            "genre_labels": [g1["label"], g2["label"]],
+            "genre_icons": [g1["icon"], g2["icon"]],
+            "genre_prefs": [g1["preferences"], g2["preferences"]],
+            "voice_name": vname,
+            "voice_instruction": voices[vname],
+            "influence": influence_pool[i],
+        })
+    return mashups
+
+
+def _sample_no_repeat(pool: list, n: int) -> list:
+    """Sample n items from pool without replacement, tiling if n > len(pool)."""
+    if n <= len(pool):
+        return random.sample(pool, n)
+    result = []
+    while len(result) < n:
+        chunk = pool[:]
+        random.shuffle(chunk)
+        result.extend(chunk)
+    return result[:n]
 
 
 def _assign_voices(genres: dict, voice: str, voices: dict) -> dict[str, str]:
@@ -144,7 +167,7 @@ def cli(config_path, email, mashups, genre_count, genre, model, voice, print_htm
         mashup_prompts = []
     else:
         # Build mashups
-        mashup_metas = [_build_mashup(config, all_genres, voices) for _ in range(mashups)]
+        mashup_metas = _build_mashups(config, all_genres, voices, mashups)
 
         # Build single-genre prompts if requested
         if genre_count > 0:

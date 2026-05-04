@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 from writingtools.spark import (
     cli, _generate_all, _generate_single_genres,
     _load_config, _build_genres, _assign_voices,
-    _build_mashup, _collect_all_influences,
+    _build_mashups, _collect_all_influences,
 )
 from writingtools.render import render_email
 from click.testing import CliRunner
@@ -135,13 +135,26 @@ def test_collect_all_influences():
     assert len(influences) > 0
 
 
-def test_build_mashup_picks_two_distinct_genres():
+def test_build_mashups_no_repeated_genres():
     genres = _build_genres(SAMPLE_CONFIG)
-    wc = _build_mashup(SAMPLE_CONFIG, genres, SAMPLE_VOICES)
-    assert len(wc["genre_keys"]) == 2
-    assert wc["genre_keys"][0] != wc["genre_keys"][1]
-    assert wc["voice_name"] in SAMPLE_VOICES
-    assert len(wc["influence"]) > 0
+    metas = _build_mashups(SAMPLE_CONFIG, genres, SAMPLE_VOICES, 2)
+    assert len(metas) == 2
+    all_genre_keys = [k for m in metas for k in m["genre_keys"]]
+    assert len(all_genre_keys) == len(set(all_genre_keys)), "genres repeated across mashups"
+
+
+def test_build_mashups_no_repeated_voices():
+    genres = _build_genres(SAMPLE_CONFIG)
+    metas = _build_mashups(SAMPLE_CONFIG, genres, SAMPLE_VOICES, 3)
+    voices_used = [m["voice_name"] for m in metas]
+    assert len(voices_used) == len(set(voices_used)), "voice repeated across mashups"
+
+
+def test_build_mashups_no_repeated_influences():
+    genres = _build_genres(SAMPLE_CONFIG)
+    metas = _build_mashups(SAMPLE_CONFIG, genres, SAMPLE_VOICES, 2)
+    influences = [m["influence"] for m in metas]
+    assert len(influences) == len(set(influences)), "influence repeated across mashups"
 
 
 # ── render tests ──────────────────────────────────────────────────────────────
