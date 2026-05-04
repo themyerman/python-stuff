@@ -425,3 +425,24 @@ genres:
       - Sisu (one man, they should have left him alone)
       - The Revenant (the land as witness, survival as revenge)
       - Gladiator (are you not entertained — vengeance as the last remaining purpose)
+
+  epistolary:
+    label: Epistolary / Diary
+    icon: "📬"
+    color: "#0a1a2a"
+    preferences: >
+      Stories told through letters, diary entries, documents, messages — the form
+      is the story. What the writer chooses to say, what they omit, who they're
+      writing to and why. The gap between what the document records and what is
+      actually happening. Unreliable by nature. The reader pieces it together.
+    influences:
+      - Bram Stoker (Dracula — the journal, the telegram, the newspaper clipping as dread)
+      - Samuel Richardson (the letter as the only weapon available)
+      - Heloise and Abelard (the real letter, the real cost, the love that survives the record)
+      - Nick Bantock (Griffin and Sabine — the letter as object, the mystery in the correspondence)
+      - Mary Shelley (Frankenstein — the nested narrator, the letter within the journal within the frame)
+    screen_influences:
+      - Bridget Jones's Diary (the journal as unreliable self-portrait, comedy of self-knowledge)
+      - Persepolis (the memoir as resistance, the self drawn small against history)
+      - The Perks of Being a Wallflower (the letter to a stranger, intimacy through anonymity)
+      - Dracula (1992 — the documents assemble the monster)
