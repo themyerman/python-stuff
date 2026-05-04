@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily Writing Spark — Sunday, May 3, 2026</title>
+  <title>Daily Writing Spark — Monday, May 4, 2026</title>
   <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -36,6 +36,64 @@ body {
   color: #555;
   font-family: system-ui, sans-serif;
 }
+
+/* ── Wild Card ───────────────────────────────────────────────────────── */
+.wildcard {
+  margin-bottom: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #3a2a5a;
+  box-shadow: 0 0 32px rgba(120, 60, 220, 0.15);
+}
+.wildcard-banner {
+  background: linear-gradient(135deg, #1a0a3a 0%, #0a1a3a 100%);
+  padding: 8px 16px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #9966ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wildcard-banner .wc-spacer { flex: 1; }
+.wildcard-banner .wc-voice {
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: #6644aa;
+}
+.wildcard-header {
+  background: linear-gradient(135deg, #120820 0%, #080f1a 100%);
+  padding: 16px 20px 14px;
+  border-top: 1px solid #2a1a4a;
+  border-bottom: 1px solid #1a1a2a;
+}
+.wildcard-genres {
+  font-family: system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ccaaff;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+.wildcard-influence {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  color: #6644aa;
+  font-style: italic;
+}
+.wildcard-body {
+  background: #0d0818;
+  padding: 22px 20px 24px;
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: #ddd8ff;
+}
+
+/* ── Genre cards ─────────────────────────────────────────────────────── */
 .card {
   margin-bottom: 24px;
   border-radius: 6px;
@@ -61,40 +119,8 @@ body {
   line-height: 1.75;
   color: #ddd;
 }
-details.beats {
-  background: #111;
-  border-top: 1px solid #222;
-}
-details.beats summary {
-  padding: 10px 20px;
-  font-family: system-ui, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #555;
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-}
-details.beats summary::-webkit-details-marker { display: none; }
-details.beats summary::after {
-  content: " ▾";
-  font-size: 0.65rem;
-}
-details.beats[open] summary::after {
-  content: " ▴";
-}
-details.beats summary:hover { color: #888; }
-details.beats ol {
-  padding: 4px 20px 18px 36px;
-  font-family: system-ui, sans-serif;
-  font-size: 0.82rem;
-  line-height: 1.7;
-  color: #666;
-}
-details.beats ol li { margin-bottom: 4px; }
-details.beats ol li:last-child { margin-bottom: 0; }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
 .footer {
   margin-top: 36px;
   padding-top: 20px;
@@ -111,130 +137,86 @@ details.beats ol li:last-child { margin-bottom: 0; }
   <div class="wrapper">
     <div class="header">
       <h1>✦ Daily Writing Spark</h1>
-      <div class="date">Sunday, May 3, 2026</div>
+      <div class="date">Monday, May 4, 2026</div>
     </div>
     
-  <div class="card">
-    <div class="card-header" style="background: #1a3a5c;">
-      <span>🚀</span>
-      <span>Science Fiction</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">trashy</span>
+  <div class="wildcard">
+    <div class="wildcard-banner">
+      <span>⚡ Wild Card</span>
+      <span class="wc-spacer"></span>
+      <span class="wc-voice">dispatch</span>
     </div>
-    <div class="card-body">In the dimly lit galley of a derelict spaceship, a mechanic discovers a hidden hatch that leads to a room filled with black-market technology — and the smoldering presence of a former lover who may not be what they seem! Can love survive the weight of betrayal and the galaxy’s most dangerous secrets?</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>The mechanic receives a distress signal from the ship, prompting a risky salvage mission.</li>
-    <li>In the ship's galley, the mechanic uncovers the hidden hatch and is drawn in by nostalgia and desire.</li>
-    <li>Within the secret room, the mechanic confronts their former lover, who has been twisted by time and circumstance.</li>
-    <li>As betrayal unfolds, the mechanic must grapple with the technology that holds the key to a larger conspiracy.</li>
-    <li>A confrontation with intergalactic bounty hunters forces the mechanic to choose between trust and survival.</li>
-    <li>In a final showdown, the fate of both their futures hangs on a decision that could alter the galaxy.</li>
-    </ol>
-  </details>
+    <div class="wildcard-header">
+      <div class="wildcard-genres">🔫 ⚔️ &nbsp;Thriller / Espionage &times; Fantasy</div>
+      <div class="wildcard-influence">via John le Carré (institutional betrayal, the human cost of the game)</div>
+    </div>
+    <div class="wildcard-body">Dateline: The Forgotten City. A covert agent, armed with nothing but a spellbook and a loaded pistol, scans the crumbling streets where shadows of wizards and mercenaries intertwine—trust is a mirage in this fractured realm, as whispers of an ancient betrayal unravel into chaos, revealing that the true enemy wears the guise of a friend, and magic might not save them this time.</div>
+  </div>
+    
+  <div class="card">
+    <div class="card-header" style="background: #1a1a1a;">
+      <span>✒️</span>
+      <span>Literary Fiction</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">beat</span>
+    </div>
+    <div class="card-body">The sun dips low over a forgotten gas station, its flickering neon sign casting shadows that move like memories across the cracked pavement—an old woman sits on the steps, cradling a tattered book, her eyes tracing the lines of her past as an unsuspecting traveler approaches, the weight of unspoken longing hanging between them.</div>
   </div>
 
   <div class="card">
-    <div class="card-header" style="background: #2d1b4e;">
-      <span>⚔️</span>
-      <span>Fantasy</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">pulp</span>
+    <div class="card-header" style="background: #2a0a0a;">
+      <span>🗡️</span>
+      <span>Revenge Tale</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">trailer</span>
     </div>
-    <div class="card-body">The rain-slicked streets of Valren's Crossing reek of desperate souls and shattered dreams, where a mysterious woman offers a deal that could save or doom an entire kingdom. But as the clock ticks and an unseen enemy lurks, the line between ally and foe blurs, and every choice could fracture the fragile trust built on betrayal!</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>A city under siege teeters on the brink of collapse as whispers of treachery fill the air.</li>
-    <li>The protagonist meets the enigmatic woman, who claims to possess the power to alter destiny.</li>
-    <li>Amid growing tension, the protagonist discovers a hidden agenda behind the woman's offer.</li>
-    <li>A rival faction makes their move, igniting chaos and forcing the protagonist to choose a side.</li>
-    <li>As betrayals unfold, the protagonist confronts their own motives and the cost of power.</li>
-    <li>In a climactic showdown, the truth is revealed, forcing the protagonist to make a sacrifice.</li>
-    </ol>
-  </details>
+    <div class="card-body">In a world where betrayal is currency, a woman stands alone in a dimly lit bar, her hands trembling around a whiskey glass, the name of the man who ruined her flickering in her mind like an advertisement for violence—she takes a slow sip, the taste bitter, knowing that tonight, she will draw the line between justice and madness.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background: #0a0a1a;">
+      <span>💰</span>
+      <span>Crime</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">satiric</span>
+    </div>
+    <div class="card-body">A group of amateur thieves gathers in a run-down basement, where the air is thick with the smell of old pizza and desperation—each one is a caricature of their worst selves, plotting the next heist while laughing at a joke that masks their fear, unaware that their biggest score might just reveal how little they really know about one another.</div>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #4a2c0a;">
       <span>🌵</span>
       <span>Western</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">xfiles</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">vanilla</span>
     </div>
-    <div class="card-body">The dusty town of Deadwood holds its breath as a notorious gunslinger rides in at sunset, looking for the man who betrayed him. Shadows gather, whispers travel, and when the sun sinks low, blood will spill — but loyalties run deeper than the well.</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>The gunslinger arrives in town, seeking vengeance for a betrayal that still burns.</li>
-    <li>He encounters an old friend who warns him of the dangers lurking in the shadows.</li>
-    <li>As the night progresses, the townsfolk become embroiled in the escalating tension.</li>
-    <li>A face-off at the saloon reveals unexpected alliances and hidden truths.</li>
-    <li>With bullets flying, the gunslinger must decide whether revenge is worth the cost of his own soul.</li>
-    <li>In the aftermath, the town must reckon with the weight of their choices and the violence that changed everything.</li>
-    </ol>
-  </details>
-  </div>
-
-  <div class="card">
-    <div class="card-header" style="background: #2a2a1a;">
-      <span>🪖</span>
-      <span>WW2</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">bestseller</span>
-    </div>
-    <div class="card-body">In the heart of occupied Paris, a small-time thief stumbles upon a hidden cache of stolen documents that could change the course of the war! With Nazi agents hot on his tail, he must navigate a web of deception and moral ambiguity — survival means making impossible choices, and trust is a luxury he can't afford.</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>The thief's chance discovery sets off a chain reaction of danger and intrigue in a perilous environment.</li>
-    <li>He encounters a resistance fighter who offers assistance, but their motives are unclear.</li>
-    <li>As he evades capture, the thief learns the true significance of the documents he has stolen.</li>
-    <li>Navigating a dangerous double-cross, he must choose between self-preservation and a greater cause.</li>
-    <li>The final confrontation leads to an unexpected alliance that shapes their destinies.</li>
-    <li>In the end, the choices made will echo through history, leaving scars and lessons for all involved.</li>
-    </ol>
-  </details>
-  </div>
-
-  <div class="card">
-    <div class="card-header" style="background: #1a2a1a;">
-      <span>🕵️</span>
-      <span>Mystery</span>
-      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">kenburns</span>
-    </div>
-    <div class="card-body">In a crumbling hotel room, a weary detective stumbles upon a blood-stained letter that speaks of a sinister pact made in the dead of night. The clock is ticking as he unravels the twisted threads of betrayal and desire — can he solve the case before he becomes the next victim?</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>The detective receives a mysterious tip about a series of unexplained disappearances linked to the hotel.</li>
-    <li>His investigation leads him to dark secrets hidden in the hotel’s past.</li>
-    <li>With every clue, the lines between ally and enemy begin to blur, complicating the case.</li>
-    <li>A confrontation with an elusive suspect raises more questions than answers.</li>
-    <li>As the detective gets closer to the truth, he realizes he is being watched, his life in danger.</li>
-    <li>In a final twist, the revelation shakes his understanding of loyalty and justice to its core.</li>
-    </ol>
-  </details>
+    <div class="card-body">Beneath the scorching sun of the New Mexico desert, a lone rider pauses at a weathered signpost reading 'Welcome to Nowhere,' where whispers of a hidden gold mine beckon like a siren—he can feel the land shift beneath him, a ghostly hand urging him towards greed, but he knows the truth: nothing good comes from chasing shadows.</div>
   </div>
 
   <div class="card">
     <div class="card-header" style="background: #1a1a2a;">
       <span>🔫</span>
       <span>Thriller / Espionage</span>
-      
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">bestseller</span>
     </div>
-    <div class="card-body">In an abandoned warehouse at the edge of town, a covert operative receives a text that redefines their entire mission: a whistleblower is poised to expose a conspiracy that reaches the highest echelons of power! But the operative must race against time and shifting loyalties to protect the source — who may not be who they claim to be.</div>
-  <details class="beats">
-    <summary>Plot beats</summary>
-    <ol>
-    <li>The operative is approached by an informant with top-secret information about the conspiracy.</li>
-    <li>As they dig deeper, traces of betrayal surface, leading to unexpected allies and buried secrets.</li>
-    <li>A sudden ambush reveals the extent of the danger they're in, and trust becomes a weapon.</li>
-    <li>Caught in a web of surveillance, the operative must stay one step ahead of their pursuers while unveiling the truth.</li>
-    <li>In a high-stakes race against time, the operative's loyalties are tested to their breaking point.</li>
-    <li>In a catastrophic twist, the exposure of the conspiracy forces the operative to confront the true meaning of loyalty and sacrifice.</li>
-    </ol>
-  </details>
+    <div class="card-body">Night falls over the city, and in a sleek apartment brimming with secrets, a woman receives an anonymous message warning her that the man she loves may not be who he claims to be—every word feels like a gunshot, echoing against the walls, as her eyes scan for the truth hidden in the shadows that dance just beyond the light.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background: #0a1a2a;">
+      <span>📬</span>
+      <span>Epistolary / Diary</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">southern_gothic</span>
+    </div>
+    <div class="card-body">In an attic filled with dust and whispers, a girl uncovers a box of old letters addressed to her mother, each one an elaborate tapestry of secrets and regrets, revealing her lineage’s struggle against a curse that binds them—she reads feverishly, aware that the words might unlock a horror she's been sheltered from or a truth that could set them all free.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background: #1a2a0a;">
+      <span>⚡</span>
+      <span>Adventure</span>
+      <span style="margin-left: auto; font-weight: 400; opacity: 0.6; text-transform: none; letter-spacing: 0;">academic</span>
+    </div>
+    <div class="card-body">This paper examines the audacious exploits of four misfit adventurers as they attempt to cross the treacherous Blackthorn Pass, navigating ancient ruins, treacherous foes, and the peculiar curse of the last mapmaker—data indicates that the odds of survival are minimal, yet their quest for legendary treasure compels them onward into the jaws of certain doom.</div>
   </div>
     <div class="footer">
-      Generated by creative-tools &middot; GitHub Models &middot; Sunday, May 3, 2026
+      Generated by creative-tools &middot; GitHub Models &middot; Monday, May 4, 2026
     </div>
   </div>
 </body>
