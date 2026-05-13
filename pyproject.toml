@@ -29,6 +29,7 @@ mood-board = "arttools.mood_board:cli"
 batch-resize = "arttools.batch_resize:cli"
 color-match = "arttools.color_match:cli"
 photo-scout = "arttools.photo_scout:cli"
+photo-lineart = "arttools.photo_lineart:cli"
 daily-spark = "writingtools.spark:cli"
 
 [tool.setuptools.packages.find]

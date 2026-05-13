@@ -1,0 +1,302 @@
+"""photo-lineart — convert photographs into line art using CV techniques.
+
+Five styles:
+  pencil   Soft artistic lines via dodge-blend (best for artistic reference)
+  ink      Bold clean lines via adaptive threshold (pen/marker look)
+  canny    Precise minimal edges via Canny detector (technical/architectural)
+  outline  Thick clean object boundaries via bilateral filter + Sobel + dilation
+  xdog     Extended Difference of Gaussians — bold felt-tip / illustration strokes
+
+Detail levels (--detail low/medium/high) control how much fine texture is
+captured vs how clean and simplified the result looks.
+
+Extra flags:
+  --darken   Push pencil lines darker via gamma curve (makes light lines pop)
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import click
+import cv2
+import numpy as np
+from PIL import Image
+
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass
+
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".heic", ".heif"}
+
+
+# ---------------------------------------------------------------------------
+# Core algorithms
+# ---------------------------------------------------------------------------
+
+def _load_gray(path: Path) -> np.ndarray:
+    """Load image as grayscale numpy array with contrast normalization.
+
+    Applies CLAHE (Contrast Limited Adaptive Histogram Equalization) so that
+    low-contrast regions get their local contrast boosted before any edge
+    detection runs. This is the single biggest quality improvement for
+    flat or evenly-lit photos.
+    """
+    img = Image.open(path).convert("L")
+    gray = np.array(img)
+    # CLAHE: boosts local contrast without blowing out highlights
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    return clahe.apply(gray)
+
+
+def _pencil(gray: np.ndarray, detail: str, darken: bool = False) -> np.ndarray:
+    """
+    Dodge-blend pencil sketch.
+    Divide the grayscale image by a blurred inversion of itself.
+    Produces soft, artistic lines that mimic a pencil drawing.
+    --darken applies a gamma curve to push lines visibly darker.
+    """
+    kernel = {"low": 31, "medium": 21, "high": 11}[detail]
+    inverted = 255 - gray
+    blurred = cv2.GaussianBlur(inverted, (kernel, kernel), sigmaX=0)
+    # Dodge blend: bright areas of blurred inversion become lines
+    sketch = cv2.divide(gray, 255 - blurred, scale=256.0)
+    sketch = np.clip(sketch, 0, 255).astype(np.uint8)
+    # Always apply a mild gamma push so lines are visible (not just on --darken)
+    gamma = 0.4 if darken else 0.65
+    sketch = np.power(sketch.astype(np.float32) / 255.0, gamma) * 255.0
+    return np.clip(sketch, 0, 255).astype(np.uint8)
+
+
+def _ink(gray: np.ndarray, detail: str) -> np.ndarray:
+    """
+    Adaptive threshold ink look.
+    Gives bold clean lines like a pen or marker drawing.
+    """
+    block = {"low": 25, "medium": 15, "high": 9}[detail]
+    # Slight blur first to reduce noise
+    blur_k = {"low": 5, "medium": 3, "high": 1}[detail]
+    if blur_k > 1:
+        gray = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+    result = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        blockSize=block,
+        C={"low": 6, "medium": 4, "high": 2}[detail],
+    )
+    return result
+
+
+def _canny(gray: np.ndarray, detail: str) -> np.ndarray:
+    """
+    Canny edge detection.
+    Produces minimal, precise lines. Good for architecture, objects, portraits.
+    """
+    blur_k = {"low": 7, "medium": 5, "high": 3}[detail]
+    t1 = {"low": 50, "medium": 30, "high": 15}[detail]
+    t2 = {"low": 150, "medium": 100, "high": 50}[detail]
+    blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+    edges = cv2.Canny(blurred, t1, t2)
+    # Canny gives white lines on black — invert to black on white
+    return 255 - edges
+
+
+def _outline(gray: np.ndarray, detail: str) -> np.ndarray:
+    """
+    Bilateral filter + Sobel gradient + dilation.
+    Produces thick, clean object boundaries — like tracing around shapes.
+    Good for portraits, objects, figures. Low detail = chunkier strokes.
+    """
+    # Bilateral filter preserves edges while smoothing texture noise
+    d = {"low": 9, "medium": 7, "high": 5}[detail]
+    sigma = {"low": 75, "medium": 50, "high": 25}[detail]
+    smoothed = cv2.bilateralFilter(gray, d=d, sigmaColor=sigma, sigmaSpace=sigma)
+
+    # Sobel gradient magnitude — finds where brightness changes sharply
+    sx = cv2.Sobel(smoothed, cv2.CV_64F, 1, 0, ksize=3)
+    sy = cv2.Sobel(smoothed, cv2.CV_64F, 0, 1, ksize=3)
+    mag = np.sqrt(sx ** 2 + sy ** 2)
+    if mag.max() > 0:
+        mag = mag / mag.max() * 255.0
+    mag = np.clip(mag, 0, 255).astype(np.uint8)
+
+    # Threshold: keep only strong edges — lower = more edges caught
+    thresh = {"low": 15, "medium": 10, "high": 5}[detail]
+    _, edges = cv2.threshold(mag, thresh, 255, cv2.THRESH_BINARY)
+
+    # Dilate to thicken lines — lower detail = thicker strokes
+    k_size = {"low": 4, "medium": 3, "high": 2}[detail]
+    kernel = np.ones((k_size, k_size), np.uint8)
+    dilated = cv2.dilate(edges, kernel, iterations=1)
+
+    return 255 - dilated  # black lines on white background
+
+
+def _xdog(gray: np.ndarray, detail: str) -> np.ndarray:
+    """
+    Extended Difference of Gaussians (XDoG).
+    Used in illustration software to produce bold, felt-tip-like strokes.
+    Captures the gestural energy of a drawing — strong shapes, less texture.
+    """
+    # sigma controls stroke width; k stretches the second Gaussian far out
+    sigma = {"low": 1.4, "medium": 0.9, "high": 0.5}[detail]
+    k = 200.0   # ratio of second Gaussian sigma to first
+    p = 20.0    # sharpening strength
+    eps = 0.01  # threshold for edge/non-edge decision
+    phi = 10.0  # softness of the threshold transition
+
+    g1 = cv2.GaussianBlur(gray.astype(np.float64), (0, 0), sigma)
+    g2 = cv2.GaussianBlur(gray.astype(np.float64), (0, 0), sigma * k)
+
+    # Dog with sharpening boost
+    dog = (1 + p) * g1 - p * g2
+
+    # Soft threshold: pixels above epsilon become white, below become dark
+    result = np.where(
+        dog >= eps,
+        1.0,
+        1.0 + np.tanh(phi * (dog - eps))
+    )
+    result = np.clip(result * 255, 0, 255).astype(np.uint8)
+    return result
+
+
+def convert(
+    path: Path,
+    style: str = "pencil",
+    detail: str = "medium",
+    invert: bool = False,
+    darken: bool = False,
+) -> np.ndarray:
+    """Convert an image file to line art. Returns grayscale numpy array."""
+    gray = _load_gray(path)
+
+    if style == "pencil":
+        result = _pencil(gray, detail, darken=darken)
+    elif style == "ink":
+        result = _ink(gray, detail)
+    elif style == "canny":
+        result = _canny(gray, detail)
+    elif style == "outline":
+        result = _outline(gray, detail)
+    elif style == "xdog":
+        result = _xdog(gray, detail)
+    else:
+        raise ValueError(f"Unknown style: {style}")
+
+    if invert:
+        result = 255 - result
+
+    return result
+
+
+def save(arr: np.ndarray, out_path: Path) -> None:
+    Image.fromarray(arr).save(out_path)
+
+
+def _output_path(src: Path, out: str, style: str) -> Path:
+    """Resolve output path for a given source file."""
+    if out:
+        p = Path(out)
+        # If --output is a directory, put the file inside it
+        if p.is_dir():
+            return p / f"{src.stem}-{style}.png"
+        return p
+    return src.parent / f"{src.stem}-{style}.png"
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+@click.command()
+@click.argument("sources", nargs=-1, required=True)
+@click.option(
+    "--style", "-s",
+    type=click.Choice(["pencil", "ink", "canny", "outline", "xdog"]),
+    default="pencil", show_default=True,
+    help="Line art style.",
+)
+@click.option(
+    "--detail", "-d",
+    type=click.Choice(["low", "medium", "high"]),
+    default="medium", show_default=True,
+    help="Detail level. Low = clean/simplified. High = more texture/noise.",
+)
+@click.option(
+    "--output", "-o", default="",
+    help="Output path or directory. Default: same folder as source, with -{style}.png suffix.",
+)
+@click.option(
+    "--invert", is_flag=True, default=False,
+    help="Invert output: white lines on black background.",
+)
+@click.option(
+    "--darken", is_flag=True, default=False,
+    help="Darken pencil lines via gamma curve (makes faint lines pop). Pencil style only.",
+)
+@click.option(
+    "--all-styles", is_flag=True, default=False,
+    help="Generate all five style versions for each source.",
+)
+def cli(sources, style, detail, output, invert, darken, all_styles):
+    """Convert photographs to line art.
+
+    SOURCES can be one or more image files or directories.
+
+    Styles:\n
+      pencil   Soft dodge-blend sketch. Add --darken to push lines darker.\n
+      ink      Bold adaptive threshold — pen/marker look.\n
+      canny    Precise minimal edges — architectural/technical.\n
+      outline  Thick clean object boundaries via bilateral filter + Sobel.\n
+      xdog     Extended Difference of Gaussians — bold illustration strokes.\n
+
+    Examples:\n
+      photo-lineart photo.jpg\n
+      photo-lineart photo.jpg --style pencil --darken\n
+      photo-lineart photo.jpg --style outline --detail low\n
+      photo-lineart photo.jpg --style xdog --detail medium\n
+      photo-lineart photo.jpg --all-styles\n
+      photo-lineart *.jpg --output ./lineart/ --style pencil
+    """
+    # Collect all image paths
+    paths: list[Path] = []
+    for src in sources:
+        p = Path(src)
+        if p.is_dir():
+            for ext in IMAGE_EXTS:
+                paths.extend(p.glob(f"*{ext}"))
+                paths.extend(p.glob(f"*{ext.upper()}"))
+        elif p.exists():
+            paths.append(p)
+        else:
+            click.echo(f"  Skipping (not found): {src}", err=True)
+
+    if not paths:
+        click.echo("No images found.", err=True)
+        sys.exit(1)
+
+    all_style_names = ["pencil", "ink", "canny", "outline", "xdog"]
+    styles = all_style_names if all_styles else [style]
+    total = len(paths) * len(styles)
+    done = 0
+
+    for path in paths:
+        if path.suffix.lower() not in IMAGE_EXTS:
+            continue
+        for st in styles:
+            try:
+                arr = convert(path, style=st, detail=detail, invert=invert, darken=darken)
+                out = _output_path(path, output if not all_styles else "", st)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                save(arr, out)
+                done += 1
+                extra = " +darken" if darken and st == "pencil" else ""
+                click.echo(f"  ✓ {out.name}  [{st}, {detail}{extra}]")
+            except Exception as e:
+                click.echo(f"  ✗ {path.name}: {e}", err=True)
+
+    click.echo(f"\n  {done}/{total} converted.")
