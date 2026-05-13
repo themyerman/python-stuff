@@ -218,6 +218,77 @@ First look at the latest piece — available now in the shop.
 
 ---
 
+## photo-lineart
+
+Converts photographs and illustrations into line art. Scores all 6 style variants plus all 15 pairwise blends (21 candidates total) and saves the top N results — flat, no subfolders — into a `compare/` folder next to your source images.
+
+### Usage
+
+```bash
+# Default: run everything, save top 5 winners
+photo-lineart photo.jpg
+photo-lineart *.jpg
+
+# Specify output folder and winner count
+photo-lineart *.jpg --output ./compare/ --top 3
+
+# Apply a color wash
+photo-lineart *.jpg --tint sepia
+photo-lineart photo.jpg --tint blueprint
+
+# Thicken or thin the lines
+photo-lineart photo.jpg --weight thick
+
+# Single style (skips scoring, one output per image)
+photo-lineart photo.jpg --style ink --detail high
+photo-lineart photo.jpg --style pencil --darken --weight thick --tint sepia
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--style` / `-s` | *(none)* | `pencil`, `ink`, `canny`, `outline`, `xdog` — omit for default mode |
+| `--detail` / `-d` | `medium` | `low`, `medium`, `high` — controls texture vs. cleanliness |
+| `--output` / `-o` | `compare/` | Output directory |
+| `--top` / `-n` | `5` | Number of top-ranked winners to save |
+| `--tint` / `-t` | `none` | `sepia`, `blueprint`, `warm`, `cool` |
+| `--weight` / `-w` | `normal` | `thin`, `normal`, `thick` |
+| `--darken` | | Push pencil lines darker via gamma curve |
+| `--invert` | | White lines on black background |
+
+### Styles
+
+| Style | Description |
+|-------|-------------|
+| `pencil` | Soft dodge-blend sketch — closest to a hand-drawn pencil look |
+| `ink` | Bold adaptive threshold — pen or marker look |
+| `canny` | Precise minimal edges — good for architecture and objects |
+| `outline` | Thick clean object boundaries via bilateral filter + Sobel |
+| `xdog` | Extended Difference of Gaussians — bold illustration strokes |
+
+### Default mode output
+
+Each image gets its own subfolder with up to 5 files ranked by score:
+
+```
+compare/
+  photo/
+    photo-top01-0.943-pencil-dark+canny.png
+    photo-top02-0.849-canny.png
+    photo-top03-0.715-pencil+canny.png
+    photo-top04-0.633-pencil.png
+    photo-top05-0.633-pencil+pencil-dark.png
+```
+
+Scores reflect useful line density (target ~15% of pixels as lines). The full ranked table of all 21 candidates is printed to the terminal.
+
+### No API key required
+
+`photo-lineart` runs entirely locally using OpenCV — no Anthropic API calls, no network access.
+
+---
+
 ## Requirements
 
 - Python 3.10+
