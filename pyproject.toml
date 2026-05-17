@@ -31,6 +31,8 @@ color-match = "arttools.color_match:cli"
 photo-scout = "arttools.photo_scout:cli"
 photo-lineart = "arttools.photo_lineart:cli"
 daily-spark = "writingtools.spark:cli"
+copy-audit = "arttools.copy_audit:cli"
+image-describe = "arttools.image_describe:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
