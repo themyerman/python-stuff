@@ -30,9 +30,11 @@ DEFAULT_MODEL = "moondream"
 FALLBACK_MODELS = ["moondream", "llava-llama3", "llava", "llava:7b", "bakllava"]
 
 DESCRIBE_PROMPT = (
-    "Describe this image in 2-3 sentences. Cover: (1) the main subject or scene, "
-    "(2) the color palette and lighting, and (3) the overall mood or style. "
-    "Be specific and concrete. Do not speculate about meaning or symbolism."
+    "Describe this image in exactly 3 sentences. "
+    "First sentence: describe the main subject and what is happening in the scene. "
+    "Second sentence: describe the colors, lighting, and visual style. "
+    "Third sentence: describe the mood or feeling of the image. "
+    "Be specific. Do not combine everything into one sentence."
 )
 
 
