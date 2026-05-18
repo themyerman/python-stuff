@@ -14,6 +14,7 @@ Built for [myerman.art](https://myerman.art) — a portfolio of Indigenous digit
 | `extract-palette` | Extract a color palette from an artwork image |
 | `next-painting` | Analyze a body of work and suggest what to paint next |
 | `patreon-plan` | Generate a multi-week Patreon content calendar from recent work |
+| `image-describe` | Walk a folder of images and write a 2-3 sentence description of each (local Ollama, no API key) |
 
 ### Install
 
@@ -289,11 +290,75 @@ Scores reflect useful line density (target ~15% of pixels as lines). The full ra
 
 ---
 
+## image-describe
+
+Walks a folder of images (or scrapes a URL) and writes a markdown file with a 2-3 sentence description of each one — subject, color palette, mood/style. Runs entirely locally via [Ollama](https://ollama.com).
+
+### Setup (one-time)
+
+```bash
+# Install Ollama
+open /Applications/Ollama.app        # if already downloaded
+# — or —
+brew install ollama                  # if Homebrew is available
+
+# Pull a vision model (~5 GB)
+ollama pull llava-llama3
+```
+
+Ollama must be running before you call the tool. The app starts automatically on login once installed.
+
+### Usage
+
+```bash
+# Describe all images in a folder
+image-describe ~/Desktop/inspo/
+
+# Write to a specific file
+image-describe ~/Desktop/art-staging/ready/ --output ~/Desktop/descriptions.md
+
+# Walk subdirectories
+image-describe ~/art/ --recursive
+
+# Scrape images from a URL
+image-describe https://myerman.art/prints/ -o gallery.md
+
+# Use a different vision model
+image-describe ~/art/ --model llava
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--output` / `-o` | `image-descriptions.md` next to source | Output markdown file |
+| `--recursive` / `-r` | off | Walk subdirectories |
+| `--model` / `-m` | `llava-llama3` | Ollama vision model to use |
+
+### Output
+
+A markdown file with one section per image:
+
+```markdown
+## crow-nation.jpg
+
+A silhouetted crow perches on a bare branch against a deep amber sky at dusk.
+The palette is dominated by burnt orange and ochre with near-black shadows.
+The mood is contemplative and elemental, evoking stillness at the edge of night.
+```
+
+### No API key required
+
+`image-describe` talks only to Ollama on `localhost:11434` — nothing leaves the machine.
+
+---
+
 ## Requirements
 
 - Python 3.10+
 - macOS (uses `sips` for image processing — no ImageMagick needed)
-- `ANTHROPIC_API_KEY` for AI features
+- `ANTHROPIC_API_KEY` for AI features (`publish-print`, `extract-palette`, `next-painting`, `patreon-plan`)
+- [Ollama](https://ollama.com) with `llava-llama3` pulled for `image-describe`
 
 ---
 

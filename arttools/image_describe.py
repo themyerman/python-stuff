@@ -1,117 +1,123 @@
-"""image-describe — generate 2-3 sentence descriptions of images using local BLIP captioning.
+"""image-describe — generate 2-3 sentence descriptions of images using a local Ollama vision model.
 
 Accepts a local directory of images or a web page URL (scrapes img tags).
-Writes a markdown file with one entry per image: filename + three-sentence
-description covering subject, color/light, and mood/style.
+Writes a markdown file with one entry per image: filename + description
+covering subject, color/light, and mood/style.
 
-No external API calls — runs entirely locally.
-Requires a venv at <project-root>/.venv-copy-audit with numpy<2, torch,
-transformers, and Pillow installed. The CLI auto-detects and re-execs into it.
+No external API calls — runs entirely locally via Ollama (http://localhost:11434).
+Requires Ollama to be installed and running with a vision model pulled, e.g.:
+  ollama pull llava-llama3
 """
 
+import base64
+import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 import click
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".tiff", ".tif", ".bmp"}
 
-VENV_PYTHON = Path(__file__).parent.parent / ".venv-copy-audit" / "bin" / "python"
+OLLAMA_BASE = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+DEFAULT_MODEL = "llava-llama3"
+FALLBACK_MODELS = ["llava-llama3", "llava", "llava:7b", "bakllava"]
 
-# Prompts for BLIP conditional captioning — each targets a different aspect
-PROMPTS = [
-    "",                                   # unconditional — subject/content
-    "the colors and lighting in this image are",   # palette and light
-    "the mood and style of this image is",         # feeling and aesthetic
-]
+DESCRIBE_PROMPT = (
+    "Describe this image in 2-3 sentences. Cover: (1) the main subject or scene, "
+    "(2) the color palette and lighting, and (3) the overall mood or style. "
+    "Be specific and concrete. Do not speculate about meaning or symbolism."
+)
 
 
-def _reexec_in_venv():
-    """Re-exec inside the copy-audit venv if not already there."""
-    if os.environ.get("COPY_AUDIT_VENV") == "1":
-        return
-    if not VENV_PYTHON.exists():
+def _ollama_request(endpoint: str, payload: dict) -> dict:
+    """POST to the Ollama API and return parsed JSON."""
+    url = f"{OLLAMA_BASE}{endpoint}"
+    data = json.dumps(payload).encode("utf-8")
+    req = Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urlopen(req, timeout=180) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except URLError as e:
         click.echo(
-            f"Venv not found at {VENV_PYTHON}\n"
-            "Set it up with:\n"
-            "  python3 -m venv .venv-copy-audit\n"
-            "  .venv-copy-audit/bin/pip install 'numpy<2' torch transformers Pillow click",
+            f"\nCannot reach Ollama at {OLLAMA_BASE}.\n"
+            "Make sure Ollama is running: open /Applications/Ollama.app\n"
+            f"Error: {e}",
             err=True,
         )
         sys.exit(1)
-    env = {**os.environ, "COPY_AUDIT_VENV": "1"}
-    result = subprocess.run(
-        [str(VENV_PYTHON), "-m", "arttools.image_describe"] + sys.argv[1:],
-        env=env,
-        stdin=sys.stdin,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
+
+
+def _available_models() -> list[str]:
+    """Return list of model names currently pulled in Ollama."""
+    try:
+        url = f"{OLLAMA_BASE}/api/tags"
+        req = Request(url)
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        return []
+
+
+def _pick_model(requested: str) -> str:
+    """Return the best available vision model, or exit with instructions."""
+    available = _available_models()
+    # Try the requested model first (exact or prefix match)
+    for name in available:
+        if name == requested or name.startswith(requested.split(":")[0]):
+            return name
+    # Try fallbacks
+    for candidate in FALLBACK_MODELS:
+        for name in available:
+            if name == candidate or name.startswith(candidate.split(":")[0]):
+                return name
+    # Nothing found
+    click.echo(
+        f"\nNo vision model found in Ollama. Pull one with:\n"
+        f"  ollama pull llava-llama3\n\n"
+        f"Available models: {available or '(none)'}",
+        err=True,
     )
-    sys.exit(result.returncode)
+    sys.exit(1)
 
 
-def load_blip():
-    """Load BLIP processor and model."""
-    from transformers import BlipProcessor, BlipForConditionalGeneration
-
-    click.echo("  Loading BLIP model…", err=True)
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained(
-        "Salesforce/blip-image-captioning-base"
-    )
-    model.eval()
-    return processor, model
-
-
-def describe_image(image_path: Path, processor, model) -> str:
-    """Return a 2-3 sentence description by running BLIP with multiple prompts."""
-    import torch
-    from PIL import Image
-
-    image = Image.open(image_path).convert("RGB")
-    sentences = []
-
-    for prompt in PROMPTS:
-        inputs = processor(image, text=prompt or None, return_tensors="pt")
-        with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=80)
-        caption = processor.decode(out[0], skip_special_tokens=True).strip()
-        # Strip the prompt prefix from conditional captions
-        if prompt and caption.lower().startswith(prompt.lower()):
-            caption = caption[len(prompt):].strip()
-        if caption:
-            # Capitalise and ensure ends with a period
-            caption = caption[0].upper() + caption[1:]
-            if not caption.endswith((".", "!", "?")):
-                caption += "."
-            sentences.append(caption)
-
-    return " ".join(sentences)
+def describe_image(image_path: Path, model: str) -> str:
+    """Return a 2-3 sentence description using Ollama vision."""
+    image_data = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    payload = {
+        "model": model,
+        "prompt": DESCRIBE_PROMPT,
+        "images": [image_data],
+        "stream": False,
+    }
+    result = _ollama_request("/api/generate", payload)
+    text = result.get("response", "").strip()
+    if not text:
+        return "[no description returned]"
+    return text
 
 
-def collect_local_images(directory: Path) -> list[tuple[str, Path]]:
-    """Return (name, path) pairs for all images in a directory (non-recursive)."""
+def collect_local_images(directory: Path, recursive: bool = False) -> list[tuple[str, Path]]:
+    """Return (name, path) pairs for all images in a directory."""
     images = []
-    for f in sorted(directory.iterdir()):
+    glob = directory.rglob("*") if recursive else directory.iterdir()
+    for f in sorted(glob):
         if f.is_file() and f.suffix.lower() in IMAGE_EXTS:
-            images.append((f.name, f))
+            name = f.relative_to(directory).as_posix() if recursive else f.name
+            images.append((name, f))
     return images
 
 
 def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
     """Scrape img tags from a URL, download images, return (name, path) pairs."""
-    try:
-        import urllib.request
-        from html.parser import HTMLParser
-    except ImportError:
-        click.echo("urllib / html.parser unavailable — cannot scrape URL.", err=True)
-        sys.exit(1)
+    from html.parser import HTMLParser
 
     class ImgScraper(HTMLParser):
         def __init__(self):
@@ -127,9 +133,9 @@ def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
 
     click.echo(f"  Fetching {url}…", err=True)
     headers = {"User-Agent": "Mozilla/5.0 (image-describe/1.0)"}
-    req = urllib.request.Request(url, headers=headers)
+    req = Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urlopen(req, timeout=15) as resp:
             html = resp.read().decode("utf-8", errors="replace")
     except Exception as e:
         click.echo(f"  Failed to fetch URL: {e}", err=True)
@@ -142,15 +148,12 @@ def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
     seen = set()
     for i, src in enumerate(scraper.srcs):
         abs_src = urljoin(url, src)
-        # Skip data URIs and duplicates
         if abs_src.startswith("data:") or abs_src in seen:
             continue
         seen.add(abs_src)
 
-        # Derive a filename
         parsed = urlparse(abs_src)
         raw_name = Path(parsed.path).name or f"image-{i:03d}"
-        # Strip query strings from extension check
         stem = Path(raw_name).stem
         suffix = Path(raw_name).suffix.split("?")[0].lower()
         if suffix not in IMAGE_EXTS:
@@ -159,8 +162,8 @@ def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
         dest = tmp_dir / filename
 
         try:
-            req2 = urllib.request.Request(abs_src, headers=headers)
-            with urllib.request.urlopen(req2, timeout=15) as resp2:
+            req2 = Request(abs_src, headers=headers)
+            with urlopen(req2, timeout=15) as resp2:
                 dest.write_bytes(resp2.read())
             images.append((filename, dest))
             click.echo(f"  Downloaded {filename}", err=True)
@@ -176,8 +179,7 @@ def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
     "--output", "-o",
     type=click.Path(path_type=Path),
     default=None,
-    help="Output markdown file (default: image-descriptions.md next to source, "
-         "or in current dir for URLs)",
+    help="Output markdown file (default: image-descriptions.md next to source).",
 )
 @click.option(
     "--recursive", "-r",
@@ -185,22 +187,27 @@ def collect_url_images(url: str, tmp_dir: Path) -> list[tuple[str, Path]]:
     default=False,
     help="Walk subdirectories (local directories only).",
 )
-def cli(source: str, output: Path | None, recursive: bool):
-    """Generate 2-3 sentence descriptions of images using local BLIP captioning.
+@click.option(
+    "--model", "-m",
+    default=DEFAULT_MODEL,
+    show_default=True,
+    help="Ollama vision model to use.",
+)
+def cli(source: str, output: Path | None, recursive: bool, model: str):
+    """Generate 2-3 sentence descriptions of images using a local Ollama vision model.
 
-    SOURCE can be a local directory or a web page URL.
+    SOURCE can be a local directory path or a web page URL.
 
-    For a directory, all images in it are described.
-    For a URL, img tags are scraped and each image is downloaded and described.
+    Requires Ollama running locally with a vision model. Install:\n
+      1. Open /Applications/Ollama.app (or: brew install ollama)\n
+      2. ollama pull llava-llama3\n
 
     Examples:\n
       image-describe ~/Desktop/inspo/\n
-      image-describe ~/Desktop/art-staging/ready/ --output ~/Desktop/descriptions.md\n
-      image-describe https://example.com/gallery/ -o gallery.md\n
-      image-describe ~/art/ --recursive
+      image-describe ~/Desktop/art/ --output ~/Desktop/descriptions.md\n
+      image-describe https://myerman.art/prints/ -o gallery.md\n
+      image-describe ~/art/ --recursive --model llava
     """
-    _reexec_in_venv()
-
     is_url = source.startswith("http://") or source.startswith("https://")
     tmp_dir_obj = None
 
@@ -214,27 +221,23 @@ def cli(source: str, output: Path | None, recursive: bool):
         if not source_path.exists():
             click.echo(f"Directory not found: {source_path}", err=True)
             sys.exit(1)
-        if recursive:
-            images = []
-            for f in sorted(source_path.rglob("*")):
-                if f.is_file() and f.suffix.lower() in IMAGE_EXTS:
-                    images.append((f.relative_to(source_path).as_posix(), f))
-        else:
-            images = collect_local_images(source_path)
+        images = collect_local_images(source_path, recursive=recursive)
         default_out = source_path / "image-descriptions.md"
 
     if not images:
         click.echo("No images found.", err=True)
         sys.exit(1)
 
-    out_path = output or default_out
-    click.echo(f"\n  {len(images)} images to describe\n", err=True)
+    active_model = _pick_model(model)
+    click.echo(f"\n  Model: {active_model}", err=True)
+    click.echo(f"  {len(images)} image(s) to describe\n", err=True)
 
-    processor, model = load_blip()
+    out_path = output or default_out
 
     lines = [
         "# Image Descriptions\n",
         f"Source: `{source}`  \n",
+        f"Model: `{active_model}`  \n",
         f"Images: {len(images)}\n",
         "---\n",
     ]
@@ -242,7 +245,7 @@ def cli(source: str, output: Path | None, recursive: bool):
     for i, (name, img_path) in enumerate(images, 1):
         click.echo(f"  [{i}/{len(images)}] {name}…", err=True)
         try:
-            description = describe_image(img_path, processor, model)
+            description = describe_image(img_path, active_model)
         except Exception as e:
             description = f"[error: {e}]"
 
