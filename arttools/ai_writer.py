@@ -42,7 +42,7 @@ def generate_description(title: str, prompt: str, size: str) -> tuple[str, list[
     )
 
     desc_msg = _client().messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-haiku-4-5",
         max_tokens=300,
         system=system,
         messages=[{"role": "user", "content": desc_prompt}],
@@ -50,7 +50,7 @@ def generate_description(title: str, prompt: str, size: str) -> tuple[str, list[
     description = desc_msg.content[0].text.strip()
 
     tags_msg = _client().messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-haiku-4-5",
         max_tokens=100,
         messages=[{"role": "user", "content": tags_prompt}],
     )

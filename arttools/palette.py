@@ -62,7 +62,7 @@ def name_palette(colors: list[dict], context: str = "") -> dict:
 
     import json
     msg = _client().messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-haiku-4-5",
         max_tokens=400,
         messages=[{"role": "user", "content": prompt}],
     )
